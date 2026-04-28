@@ -5,7 +5,6 @@ const app = express();
 
 app.use(express.json());
 
-// Example: Get all spare parts
 app.get('/spareparts', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM sparepart');
@@ -15,7 +14,6 @@ app.get('/spareparts', async (req, res) => {
   }
 });
 
-// Example: Get service orders for a user
 app.get('/serviceorders/:userID', async (req, res) => {
   try {
     const [rows] = await db.query(
