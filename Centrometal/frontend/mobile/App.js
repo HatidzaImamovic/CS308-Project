@@ -1,19 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
-import { getSpareParts } from './services/api';
+import React, { useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import LoginScreen from './screens/LoginScreen';
+import HomeScreen from './screens/HomeScreen';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [status, setStatus] = useState('Connecting...');
-
-  useEffect(() => {
-    getSpareParts()
-      .then(data => setStatus('Connected! Parts found: ' + data.length))
-      .catch(err => setStatus('Error: ' + err.message));
-  }, []);
-
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>{status}</Text>
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Login">
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Home" component={HomeScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
