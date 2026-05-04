@@ -16,7 +16,7 @@ app.post('/login', async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+      return res.status(401).json({ message: 'Pogrešno korisničko ime ili lozinka' });
     }
 
     // compare entered password with the hash in DB
@@ -25,7 +25,7 @@ app.post('/login', async (req, res) => {
     if (isMatch) {
       res.json({ user: rows[0] });
     } else {
-      res.status(401).json({ message: 'Invalid username or password' });
+      res.status(401).json({ message: 'Pogrešno korisničko ime ili lozinka' });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
