@@ -3,12 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   SafeAreaView,
   StatusBar,
   Image,
 } from 'react-native';
+import styles from './styles/homeScreen';
 
 const normalizeUserName = (user) => {
   const firstName = user?.fName || user?.fname || user?.firstName || user?.first_name;
@@ -138,44 +138,4 @@ export default function HomeScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#446977' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#446977',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#7aa7b8',
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIconBox: { width: 60, height: 60, borderRadius: 12, backgroundColor: '#446977', alignItems: 'center', justifyContent: 'center' },
-  logoImage: { width: 200, height: 100, resizeMode: 'contain', marginLeft:115 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerUserInfo: { alignItems: 'flex-end' },
-  headerUserName: { color: '#ffffff', fontSize: 20, fontWeight: '600' },
-  headerUserRole: { color: '#bec5d5', fontSize: 17, marginTop: 1 },
-  scrollView: { flex: 1, backgroundColor: '#446977' },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  welcomeSection: { marginBottom: 24, marginTop: 8 },
-  welcomeTitle: { color: '#ffffff', fontSize: 24, fontWeight: '700', letterSpacing: 0.2 },
-  welcomeSubtitle: { color: '#ffffff', fontSize: 14, marginTop: 4 },
-  cardsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  actionCard: { flex: 1, backgroundColor: '#7aa7b8', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#ffffff' },
-  actionIconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#446977', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  actionIcon: { width: 28, height: 28, resizeMode: 'contain' },
-  actionTitle: { color: '#ffffff', fontSize: 15, fontWeight: '700', marginBottom: 6 },
-  actionSubtitle: { color: '#ffffff', fontSize: 13, lineHeight: 18 },
-  quickOverview: { backgroundColor: '#7aa7b8', borderRadius: 14, padding: 18, borderWidth: 1, borderColor: '#ffffff', marginBottom: 24 },
-  quickOverviewLabel: { color: '#ffffff', fontSize: 14, fontWeight: '700', letterSpacing: 1.2, marginBottom: 16 },
-  statsRow: { flexDirection: 'row', alignItems: 'center' },
-  statBox: { flex: 1, alignItems: 'center' },
-  statLabel: { color: '#ffffff', fontSize: 14, textAlign: 'center', marginBottom: 6 },
-  statValue: { color: '#ffffff', fontSize: 34, fontWeight: '700' },
-  statDivider: { width: 1, height: 40, backgroundColor: '#ffffff' },
-  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ffffff', borderRadius: 12, paddingVertical: 16, gap: 8, backgroundColor: '#7aa7b8' },
-  logoutIcon: { color: '#e05a5a', fontSize: 16, fontWeight: '700' },
-  logoutText: { color: '#e05a5a', fontSize: 15, fontWeight: '600' },
-});
+
