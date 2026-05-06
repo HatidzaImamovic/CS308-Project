@@ -145,90 +145,92 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Service Type Dropdown */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tip servisa *</Text>
-          <TouchableOpacity
-            style={[styles.dropdown, errors.serviceType && styles.inputError]}
-            onPress={() => setShowServiceTypeModal(true)}
-          >
-            <Text
-              style={
-                formData.serviceType
-                  ? styles.dropdownText
-                  : styles.placeholderText
-              }
+        <View style={styles.formCard}>
+          {/* Service Type Dropdown */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tip servisa *</Text>
+            <TouchableOpacity
+              style={[styles.dropdown, errors.serviceType && styles.inputError]}
+              onPress={() => setShowServiceTypeModal(true)}
             >
-              {formData.serviceType || "Odaberite tip servisa"}
-            </Text>
-            <Text style={styles.dropdownArrow}>▼</Text>
+              <Text
+                style={
+                  formData.serviceType
+                    ? styles.dropdownText
+                    : styles.placeholderText
+                }
+              >
+                {formData.serviceType || "Odaberite tip servisa"}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
+            {errors.serviceType && (
+              <Text style={styles.errorText}>{errors.serviceType}</Text>
+            )}
+          </View>
+
+          {/* Serial Number */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Serijski broj *</Text>
+            <TextInput
+              style={[styles.input, errors.serialNumber && styles.inputError]}
+              value={formData.serialNumber}
+              onChangeText={(value) => updateFormData("serialNumber", value)}
+              placeholder="SN-000"
+              placeholderTextColor="#999"
+              autoCapitalize="characters"
+            />
+            {errors.serialNumber && (
+              <Text style={styles.errorText}>{errors.serialNumber}</Text>
+            )}
+          </View>
+
+          {/* Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Ime *</Text>
+            <TextInput
+              style={[styles.input, errors.name && styles.inputError]}
+              value={formData.name}
+              onChangeText={(value) => updateFormData("name", value)}
+              placeholder="Unesite ime"
+              placeholderTextColor="#999"
+            />
+            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+          </View>
+
+          {/* Location */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Lokacija *</Text>
+            <TextInput
+              style={[styles.input, errors.location && styles.inputError]}
+              value={formData.location}
+              onChangeText={(value) => updateFormData("location", value)}
+              placeholder="Unesite lokaciju"
+              placeholderTextColor="#999"
+            />
+            {errors.location && (
+              <Text style={styles.errorText}>{errors.location}</Text>
+            )}
+          </View>
+
+          {/* Date */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Datum *</Text>
+            <TextInput
+              style={[styles.input, errors.date && styles.inputError]}
+              value={formData.date}
+              onChangeText={(value) => updateFormData("date", value)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#999"
+            />
+            {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Text style={styles.submitButtonText}>Kreiraj nalog</Text>
           </TouchableOpacity>
-          {errors.serviceType && (
-            <Text style={styles.errorText}>{errors.serviceType}</Text>
-          )}
         </View>
-
-        {/* Serial Number */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Serijski broj *</Text>
-          <TextInput
-            style={[styles.input, errors.serialNumber && styles.inputError]}
-            value={formData.serialNumber}
-            onChangeText={(value) => updateFormData("serialNumber", value)}
-            placeholder="SN-000"
-            placeholderTextColor="#999"
-            autoCapitalize="characters"
-          />
-          {errors.serialNumber && (
-            <Text style={styles.errorText}>{errors.serialNumber}</Text>
-          )}
-        </View>
-
-        {/* Name */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Ime *</Text>
-          <TextInput
-            style={[styles.input, errors.name && styles.inputError]}
-            value={formData.name}
-            onChangeText={(value) => updateFormData("name", value)}
-            placeholder="Unesite ime"
-            placeholderTextColor="#999"
-          />
-          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-        </View>
-
-        {/* Location */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Lokacija *</Text>
-          <TextInput
-            style={[styles.input, errors.location && styles.inputError]}
-            value={formData.location}
-            onChangeText={(value) => updateFormData("location", value)}
-            placeholder="Unesite lokaciju"
-            placeholderTextColor="#999"
-          />
-          {errors.location && (
-            <Text style={styles.errorText}>{errors.location}</Text>
-          )}
-        </View>
-
-        {/* Date */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Datum *</Text>
-          <TextInput
-            style={[styles.input, errors.date && styles.inputError]}
-            value={formData.date}
-            onChangeText={(value) => updateFormData("date", value)}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#999"
-          />
-          {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
-        </View>
-
-        {/* Submit Button */}
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Kreiraj nalog</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Service Type Modal */}

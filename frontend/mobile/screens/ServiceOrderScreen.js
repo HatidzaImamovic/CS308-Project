@@ -1,41 +1,77 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   SafeAreaView,
   StatusBar,
   FlatList,
   RefreshControl,
   Alert,
+  TextInput,
+  ScrollView,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { getServiceOrders, updateServiceOrderStatus } from "../services/api";
 import styles from "./styles/serviceOrderScreen";
 
+const FILTER_TYPES = [
+  { label: "Svi tipovi", value: "all" },
+  { label: "Instalacija", value: "installation" },
+  { label: "Popravak", value: "repair" },
+  { label: "Održavanje", value: "maintenance" },
+];
+
+const SORT_OPTIONS = [
+  { label: "Najnovije", value: "newest" },
+  { label: "Najstarije", value: "oldest" },
+];
+
+const getTypeText = (type) => {
+  switch (type) {
+    case "installation":
+    case "Instalacija":
+      return "Instalacija";
+    case "repair":
+    case "Popravak":
+      return "Popravak";
+    case "maintenance":
+    case "Održavanje":
+      return "Održavanje";
+    default:
+      return type || "Nepoznato";
+  }
+};
+
+const normalizeOrderType = (order) => {
+  const rawType = order.type || order.serviceType || "";
+  const normalized = rawType.toString().trim().toLowerCase();
+  if (normalized.includes("install") || normalized.includes("instal"))
+    return "installation";
+  if (normalized.includes("poprav")) return "repair";
+  if (
+    normalized.includes("održ") ||
+    normalized.includes("odrz") ||
+    normalized.includes("odrzav")
+  )
+    return "maintenance";
+  if (
+    normalized === "installation" ||
+    normalized === "repair" ||
+    normalized === "maintenance"
+  )
+    return normalized;
+  return normalized;
+};
+
 const ServiceOrderItem = ({ item, onPress }) => {
-  const getStatusText = (status) => {
-    if (status === 1 || status === "1") return "Zatvoren";
-    return "Otvoren";
-  };
-
-  const getStatusColor = (status) => {
-    return status === 1 || status === "1" ? "#28a745" : "#ffc107";
-  };
-
-  const getTypeText = (type) => {
-    switch (type) {
-      case "installation":
-        return "Instalacija";
-      case "repair":
-        return "Popravak";
-      case "maintenance":
-        return "Održavanje";
-      default:
-        return type || "Nepoznato";
-    }
-  };
+  const statusText =
+    item.status === 1 || item.status === "1" ? "Zatvoren" : "Otvoren";
+  const statusColor =
+    item.status === 1 || item.status === "1" ? "#28a745" : "#ffc107";
+  const orderType = getTypeText(normalizeOrderType(item));
+  const locationText = item.location || item.description || "Nepoznato";
+  const orderDate = item.createdAt || item.date || item.updatedAt || "";
 
   return (
     <TouchableOpacity style={styles.orderItem} onPress={onPress}>
@@ -45,18 +81,18 @@ const ServiceOrderItem = ({ item, onPress }) => {
           style={[
             styles.orderStatus,
             {
-              backgroundColor: getStatusColor(item.status) + "20",
-              color: getStatusColor(item.status),
+              backgroundColor: statusColor + "20",
+              color: statusColor,
             },
           ]}
         >
-          {getStatusText(item.status)}
+          {statusText}
         </Text>
       </View>
-      <Text style={styles.orderType}>{getTypeText(item.type)}</Text>
-      <Text style={styles.orderLocation}>{item.description}</Text>
+      <Text style={styles.orderType}>{orderType}</Text>
+      <Text style={styles.orderLocation}>{locationText}</Text>
       <Text style={styles.orderDate}>
-        {new Date(item.createdAt).toLocaleDateString()}
+        {new Date(orderDate).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
   );
@@ -68,6 +104,9 @@ export default function ServiceOrderScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
 
   const loadServiceOrders = async () => {
     try {
@@ -141,11 +180,42 @@ export default function ServiceOrderScreen({ route, navigation }) {
     );
   };
 
+  const filteredOrders = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return [...serviceOrders]
+      .filter((item) => {
+        const itemType = normalizeOrderType(item);
+        const orderTypeLabel = getTypeText(itemType).toLowerCase();
+        const location = (item.location || item.description || "")
+          .toString()
+          .toLowerCase();
+        const name = (item.name || item.customerName || "")
+          .toString()
+          .toLowerCase();
+        const searchSource = `${orderTypeLabel} ${location} ${name}`.trim();
+
+        const matchesSearch =
+          !normalizedQuery || searchSource.includes(normalizedQuery);
+        const matchesType = selectedType === "all" || itemType === selectedType;
+
+        return matchesSearch && matchesType;
+      })
+      .sort((a, b) => {
+        const aDate = new Date(
+          a.createdAt || a.date || a.updatedAt || 0,
+        ).getTime();
+        const bDate = new Date(
+          b.createdAt || b.date || b.updatedAt || 0,
+        ).getTime();
+        return sortOrder === "newest" ? bDate - aDate : aDate - bDate;
+      });
+  }, [serviceOrders, searchQuery, selectedType, sortOrder]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#446977" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -157,7 +227,63 @@ export default function ServiceOrderScreen({ route, navigation }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Content */}
+      <View style={styles.filterContainer}>
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Pretraži ime, lokaciju ili tip"
+          placeholderTextColor="#5c6f78"
+          style={styles.searchInput}
+        />
+
+        <ScrollView
+          style={styles.filterScroll}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {FILTER_TYPES.map((filter) => (
+            <TouchableOpacity
+              key={filter.value}
+              onPress={() => setSelectedType(filter.value)}
+              style={[
+                styles.filterChip,
+                selectedType === filter.value && styles.filterChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedType === filter.value && styles.filterChipTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          {SORT_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              onPress={() => setSortOrder(option.value)}
+              style={[
+                styles.filterChip,
+                sortOrder === option.value && styles.filterChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  sortOrder === option.value && styles.filterChipTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <View style={styles.content}>
         {error ? (
           <View style={styles.errorContainer}>
@@ -173,14 +299,16 @@ export default function ServiceOrderScreen({ route, navigation }) {
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingText}>Učitavanje...</Text>
           </View>
-        ) : serviceOrders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Nema servisnih naloga</Text>
-            <Text style={styles.emptySubtext}>Dodajte novi servisni nalog</Text>
+            <Text style={styles.emptyText}>Nema odgovarajućih naloga</Text>
+            <Text style={styles.emptySubtext}>
+              Pokušajte promijeniti pretragu ili filter.
+            </Text>
           </View>
         ) : (
           <FlatList
-            data={serviceOrders}
+            data={filteredOrders}
             keyExtractor={(item) => String(item.serviceOrderID || item.id)}
             renderItem={({ item }) => (
               <ServiceOrderItem
@@ -196,7 +324,6 @@ export default function ServiceOrderScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* Add Button */}
       <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>

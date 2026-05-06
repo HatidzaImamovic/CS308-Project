@@ -61,9 +61,9 @@ const Header = ({ user }) => {
   );
 };
 
-const ActionCard = ({ iconSource, title, subtitle, onPress }) => (
+const ActionCard = ({ iconSource, title, subtitle, onPress, style }) => (
   <TouchableOpacity
-    style={styles.actionCard}
+    style={[styles.actionCard, style]}
     onPress={onPress}
     activeOpacity={0.75}
   >
@@ -125,18 +125,21 @@ export default function HomeScreen({ route, navigation }) {
             title="Servisni nalog"
             subtitle="Dodaj novi nalog ili nastavi s postojećim"
             onPress={handleKreirajNalog}
+            style={styles.actionCard}
           />
           <ActionCard
             iconSource={require("../public/shop.png")}
             title="Shop"
             subtitle="Rezervni dijelovi i oprema"
             onPress={handleShop}
+            style={styles.actionCard}
           />
           <ActionCard
             iconSource={require("../public/financije.png")}
             title="Financije"
             subtitle="Računi, plaćanja i izvještaji"
             onPress={handleFinancije}
+            style={[styles.actionCard, styles.actionCardLast]}
           />
         </View>
 
