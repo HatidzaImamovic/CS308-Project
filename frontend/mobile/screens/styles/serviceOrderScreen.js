@@ -39,14 +39,14 @@ export default StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: "#f3f7f9",
+    backgroundColor: "#446977",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: "hidden",
   },
   filterContainer: {
     padding: 16,
-    backgroundColor: "#446977",
+    backgroundColor: "#7aa7b8",
     borderRadius: 0,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
@@ -55,14 +55,15 @@ export default StyleSheet.create({
     elevation: 6,
   },
   searchInput: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#446977",
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 14,
-    color: "#2f4a57",
+    color: "#ffffff",
     borderWidth: 1,
-    borderColor: "#d9e3ea",
+    borderColor: "#ffffff",
+    placeholderTextColor: "#ffffff",
   },
   filterScroll: {
     marginTop: 12,
@@ -76,14 +77,14 @@ export default StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.25)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
     marginRight: 8,
   },
   filterChipActive: {
-    backgroundColor: "#ffffff",
-    borderColor: "#ffffff",
+    backgroundColor: "#1ca8b2",
+    borderColor: "#1ca8b2",
   },
   filterChipText: {
     color: "#d4e2ea",
@@ -91,7 +92,7 @@ export default StyleSheet.create({
     fontWeight: "600",
   },
   filterChipTextActive: {
-    color: "#446977",
+    color: "#ffffff",
   },
   loadingContainer: {
     flex: 1,
@@ -101,7 +102,7 @@ export default StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: "#556a73",
+    color: "#ffffff",
   },
   emptyContainer: {
     flex: 1,
@@ -113,12 +114,12 @@ export default StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#33414b",
+    color: "#ffffff",
     marginBottom: 10,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#66797f",
+    color: "#bec5d5",
     textAlign: "center",
   },
   errorContainer: {
@@ -135,7 +136,7 @@ export default StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: "#446977",
+    backgroundColor: "#1ca8b2",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
@@ -151,10 +152,12 @@ export default StyleSheet.create({
     paddingBottom: 120,
   },
   orderItem: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#7aa7b8",
     borderRadius: 18,
     padding: 18,
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#ffffff",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -173,7 +176,7 @@ export default StyleSheet.create({
   orderId: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#2f4a57",
+    color: "#ffffff",
   },
   orderStatus: {
     fontSize: 12,
@@ -185,18 +188,18 @@ export default StyleSheet.create({
   orderType: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#33414b",
+    color: "#ffffff",
     marginBottom: 6,
   },
   orderLocation: {
     fontSize: 14,
-    color: "#5c6f78",
+    color: "#ffffff",
     marginBottom: 6,
     lineHeight: 20,
   },
   orderDate: {
     fontSize: 12,
-    color: "#8a9aa4",
+    color: "#bec5d5",
   },
   addButton: {
     position: "absolute",
@@ -205,7 +208,7 @@ export default StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#3e5f69",
+    backgroundColor: "#1ca8b2",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",

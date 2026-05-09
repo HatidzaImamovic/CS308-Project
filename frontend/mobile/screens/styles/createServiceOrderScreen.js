@@ -107,11 +107,13 @@ export default StyleSheet.create({
   },
   submitButton: {
     backgroundColor: "#1ca8b2",
-    borderRadius: 16,
+    borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 20,
     marginBottom: 40,
+    borderWidth: 1,
+    borderColor: "#ffffff",
   },
   submitButtonText: {
     color: "#fff",
