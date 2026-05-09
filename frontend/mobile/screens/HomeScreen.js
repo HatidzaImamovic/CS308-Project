@@ -78,7 +78,7 @@ export default function HomeScreen({ route, navigation }) {
   };
 
   const handleFinancije = () => {
-    // navigation.navigate('Financije');
+    navigation.navigate('Financije', { user });
     console.log('Financije pressed');
   };
 

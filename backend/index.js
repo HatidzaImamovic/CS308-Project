@@ -53,6 +53,27 @@ app.get('/serviceorders/:userID', async (req, res) => {
   }
 });
 
+app.get('/financial/:userID', async (req, res) => {
+  try {
+    const userID = req.params.userID;
+
+    const query = `
+      SELECT f.*
+      FROM financialrecord f
+      JOIN serviceorder s ON f.serviceOrderID = s.serviceOrderID
+      WHERE s.userID = ?
+    `;
+
+    const [results] = await db.query(query, [userID]);
+
+
+    res.json(results);
+
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 app.listen(process.env.PORT || 3000, () => {
   console.log('Server running on port 3000');
 });
