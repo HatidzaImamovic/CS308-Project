@@ -11,9 +11,18 @@ import {
   TextInput,
   ScrollView,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { getServiceOrders, updateServiceOrderStatus } from "../services/api";
 import styles from "./styles/serviceOrderScreen";
+
+const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
+
+const ORDER_STATUS_FILTERS = [
+  { label: "Svi", value: "all" },
+  { label: "Otvoreni", value: "open" },
+  { label: "Zatvoreni", value: "closed" },
+];
 
 const FILTER_TYPES = [
   { label: "Svi tipovi", value: "all" },
@@ -65,10 +74,9 @@ const normalizeOrderType = (order) => {
 };
 
 const ServiceOrderItem = ({ item, onPress }) => {
-  const statusText =
-    item.status === 1 || item.status === "1" ? "Zatvoren" : "Otvoren";
-  const statusColor =
-    item.status === 1 || item.status === "1" ? "#28a745" : "#ffc107";
+  const isDraft = item.isDraft || item.status === 0 || item.status === "0";
+  const statusText = isDraft ? "Otvoren" : "Zatvoren";
+  const statusColor = isDraft ? "#ffc107" : "#28a745";
   const orderType = getTypeText(normalizeOrderType(item));
   const locationText = item.location || item.description || "Nepoznato";
   const orderDate = item.createdAt || item.date || item.updatedAt || "";
@@ -101,12 +109,24 @@ const ServiceOrderItem = ({ item, onPress }) => {
 export default function ServiceOrderScreen({ route, navigation }) {
   const { user } = route?.params || {};
   const [serviceOrders, setServiceOrders] = useState([]);
+  const [draftOrders, setDraftOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
+
+  const loadDraftOrders = async (userId) => {
+    try {
+      const draftJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
+      setDraftOrders(draftJson ? JSON.parse(draftJson) : []);
+    } catch (err) {
+      console.error("Error loading draft orders:", err);
+      setDraftOrders([]);
+    }
+  };
 
   const loadServiceOrders = async () => {
     try {
@@ -119,7 +139,8 @@ export default function ServiceOrderScreen({ route, navigation }) {
       }
 
       const orders = await getServiceOrders(userId);
-      setServiceOrders(orders);
+      setServiceOrders(orders.map((order) => ({ ...order, isDraft: false })));
+      await loadDraftOrders(userId);
       setError(null);
     } catch (error) {
       console.error("Error loading service orders:", error);
@@ -151,6 +172,11 @@ export default function ServiceOrderScreen({ route, navigation }) {
   };
 
   const handleOrderPress = async (order) => {
+    if (order.isDraft) {
+      navigation.navigate("CreateServiceOrder", { user, draft: order });
+      return;
+    }
+
     const orderId = order.serviceOrderID || order.id;
     const isClosed = order.status === 1 || order.status === "1";
     const newStatus = isClosed ? 0 : 1;
@@ -182,8 +208,17 @@ export default function ServiceOrderScreen({ route, navigation }) {
 
   const filteredOrders = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    let ordersToFilter = [];
 
-    return [...serviceOrders]
+    if (statusFilter === "open") {
+      ordersToFilter = draftOrders;
+    } else if (statusFilter === "closed") {
+      ordersToFilter = serviceOrders;
+    } else {
+      ordersToFilter = [...draftOrders, ...serviceOrders];
+    }
+
+    return ordersToFilter
       .filter((item) => {
         const itemType = normalizeOrderType(item);
         const orderTypeLabel = getTypeText(itemType).toLowerCase();
@@ -210,7 +245,14 @@ export default function ServiceOrderScreen({ route, navigation }) {
         ).getTime();
         return sortOrder === "newest" ? bDate - aDate : aDate - bDate;
       });
-  }, [serviceOrders, searchQuery, selectedType, sortOrder]);
+  }, [
+    serviceOrders,
+    draftOrders,
+    searchQuery,
+    selectedType,
+    sortOrder,
+    statusFilter,
+  ]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -242,6 +284,26 @@ export default function ServiceOrderScreen({ route, navigation }) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScrollContent}
         >
+          {ORDER_STATUS_FILTERS.map((filter) => (
+            <TouchableOpacity
+              key={filter.value}
+              onPress={() => setStatusFilter(filter.value)}
+              style={[
+                styles.filterChip,
+                statusFilter === filter.value && styles.filterChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  statusFilter === filter.value && styles.filterChipTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
           {FILTER_TYPES.map((filter) => (
             <TouchableOpacity
               key={filter.value}

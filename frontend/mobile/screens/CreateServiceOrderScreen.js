@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,8 +11,11 @@ import {
   Modal,
   FlatList,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createServiceOrder } from "../services/api";
 import styles from "./styles/createServiceOrderScreen";
+
+const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
 
 const SERVICE_TYPES = [
   { label: "Instalacija", value: "Instalacija" },
@@ -30,9 +33,24 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     location: "",
     date: new Date().toISOString().split("T")[0], // Current date in YYYY-MM-DD format
   });
-
+  const [draftId, setDraftId] = useState(null);
   const [errors, setErrors] = useState({});
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
+  const saveTimeout = useRef(null);
+
+  useEffect(() => {
+    const draft = route?.params?.draft;
+    if (draft) {
+      setDraftId(draft.id);
+      setFormData({
+        serviceType: draft.serviceType || "",
+        serialNumber: draft.serialNumber || "",
+        name: draft.name || "",
+        location: draft.location || "",
+        date: draft.date || new Date().toISOString().split("T")[0],
+      });
+    }
+  }, [route?.params?.draft]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -73,6 +91,41 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const hasDraftData = () => {
+    return Boolean(
+      formData.serviceType ||
+      formData.serialNumber ||
+      formData.name ||
+      formData.location,
+    );
+  };
+
+  const saveDraftData = async (userId, currentFormData, currentDraftId) => {
+    if (!userId || !hasDraftData()) return null;
+
+    const draftKey = DRAFTS_STORAGE_KEY(userId);
+    const draftJson = await AsyncStorage.getItem(draftKey);
+    const existingDrafts = draftJson ? JSON.parse(draftJson) : [];
+    const newDraftId = currentDraftId || Date.now().toString();
+    const newDraft = {
+      id: newDraftId,
+      ...currentFormData,
+      userID: userId,
+      isDraft: true,
+      updatedAt: new Date().toISOString(),
+      createdAt: currentDraftId
+        ? currentFormData.createdAt || currentFormData.date
+        : new Date().toISOString(),
+    };
+    const updatedDrafts = [
+      newDraft,
+      ...existingDrafts.filter((draft) => draft.id !== newDraftId),
+    ];
+    await AsyncStorage.setItem(draftKey, JSON.stringify(updatedDrafts));
+    setDraftId(newDraftId);
+    return newDraftId;
+  };
+
   const handleSubmit = async () => {
     if (validateForm()) {
       const userId = user?.id || user?.userID;
@@ -89,10 +142,15 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
         const orderData = {
           ...formData,
           userID: userId,
+          status: 1,
         };
 
         console.log("Creating service order", orderData);
         const result = await createServiceOrder(orderData);
+
+        if (draftId) {
+          await removeDraft(userId, draftId);
+        }
 
         Alert.alert("Uspjeh", "Servisni nalog je uspješno kreiran!", [
           {
@@ -119,6 +177,73 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
   };
+
+  const removeDraft = async (userId, id) => {
+    try {
+      const draftJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
+      const drafts = draftJson ? JSON.parse(draftJson) : [];
+      const updatedDrafts = drafts.filter((draft) => draft.id !== id);
+      await AsyncStorage.setItem(
+        DRAFTS_STORAGE_KEY(userId),
+        JSON.stringify(updatedDrafts),
+      );
+    } catch (err) {
+      console.error("Error removing draft:", err);
+    }
+  };
+
+  const saveDraft = async () => {
+    const userId = user?.id || user?.userID;
+    if (!userId) {
+      Alert.alert(
+        "Greška",
+        "Korisnik nije prepoznat. Molimo prijavite se ponovo.",
+        [{ text: "OK" }],
+      );
+      return;
+    }
+
+    try {
+      const savedId = await saveDraftData(userId, formData, draftId);
+      if (savedId) {
+        Alert.alert(
+          "Nacrt spremljen",
+          "Servisni nalog je spremljen kao otvoreni nalog.",
+        );
+      } else {
+        Alert.alert(
+          "Nema podataka",
+          "Nema dovoljno podataka za spremanje nacrta.",
+        );
+      }
+    } catch (err) {
+      console.error("Error saving draft:", err);
+      Alert.alert("Greška", "Nije moguće spremiti nacrt. Pokušajte ponovo.", [
+        { text: "OK" },
+      ]);
+    }
+  };
+
+  useEffect(() => {
+    const userId = user?.id || user?.userID;
+    if (!userId) return;
+
+    if (saveTimeout.current) {
+      clearTimeout(saveTimeout.current);
+    }
+
+    saveTimeout.current = setTimeout(() => {
+      saveDraftData(userId, formData, draftId).catch((err) => {
+        console.error("Error autosaving draft:", err);
+      });
+    }, 800);
+
+    return () => {
+      if (saveTimeout.current) {
+        clearTimeout(saveTimeout.current);
+      }
+    };
+  }, [formData, draftId, user?.id, user?.userID]);
 
   const selectServiceType = (type) => {
     updateFormData("serviceType", type);

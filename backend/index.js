@@ -61,7 +61,15 @@ app.get("/serviceorders/:userID", async (req, res) => {
   }
 });
 app.post("/serviceorders", async (req, res) => {
-  const { serviceType, serialNumber, name, location, date, userID } = req.body;
+  const {
+    serviceType,
+    serialNumber,
+    name,
+    location,
+    date,
+    userID,
+    status = 1,
+  } = req.body;
 
   if (!serviceType || !serialNumber || !name || !location || !date || !userID) {
     return res.status(400).json({ message: "Nedostaju obavezni podaci" });
@@ -76,6 +84,19 @@ app.post("/serviceorders", async (req, res) => {
   const typeValue = typeMap[serviceType];
   if (!typeValue) {
     return res.status(400).json({ message: "Nevažeći tip servisa" });
+  }
+
+  const statusValue =
+    status === 1 || status === "1"
+      ? 1
+      : status === 0 || status === "0"
+        ? 0
+        : null;
+
+  if (statusValue === null) {
+    return res
+      .status(400)
+      .json({ message: "Nevažeći status. Dozvoljeni statusi: 0, 1" });
   }
 
   try {
@@ -99,13 +120,13 @@ app.post("/serviceorders", async (req, res) => {
 
     const [result] = await db.query(
       "INSERT INTO serviceorder (type, status, deviceID, userID, createdAt, description) VALUES (?, ?, ?, ?, NOW(), ?)",
-      [typeValue, 0, deviceID, userID, description],
+      [typeValue, statusValue, deviceID, userID, description],
     );
 
     res.status(201).json({
       id: result.insertId,
       type: typeValue,
-      status: 0,
+      status: statusValue,
       deviceID,
       userID,
       createdAt: new Date(),
@@ -119,17 +140,23 @@ app.put("/serviceorders/:id/status", async (req, res) => {
   const { status } = req.body;
   const { id } = req.params;
 
-  // Validate status
-  if (!["otvoren", "zatvoren"].includes(status)) {
+  let normalizedStatus = null;
+  if (status === 0 || status === "0" || status === "otvoren") {
+    normalizedStatus = 0;
+  } else if (status === 1 || status === "1" || status === "zatvoren") {
+    normalizedStatus = 1;
+  }
+
+  if (normalizedStatus === null) {
     return res.status(400).json({
-      message: "Nevažeći status. Dozvoljeni statusi: otvoren, zatvoren",
+      message: "Nevažeći status. Dozvoljeni statusi: 0, 1, otvoren, zatvoren",
     });
   }
 
   try {
     const [result] = await db.query(
       "UPDATE serviceorder SET status = ? WHERE id = ?",
-      [status, id],
+      [normalizedStatus, id],
     );
 
     if (result.affectedRows === 0) {
