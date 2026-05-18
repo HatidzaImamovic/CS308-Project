@@ -5,6 +5,7 @@ import LoginScreen from "./screens/LoginScreen";
 import HomeScreen from "./screens/HomeScreen";
 import ServiceOrderScreen from "./screens/ServiceOrderScreen";
 import CreateServiceOrderScreen from "./screens/CreateServiceOrderScreen";
+import FinancialScreen from './screens/FinancialScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,7 @@ export default function App() {
           name="CreateServiceOrder"
           component={CreateServiceOrderScreen}
         />
+        <Stack.Screen name="Financije" component={FinancialScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

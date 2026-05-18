@@ -51,3 +51,14 @@ export const updateServiceOrderStatus = async (orderId, status) => {
   if (!response.ok) throw new Error("Failed to update service order status");
   return response.json();
 };
+
+export const getFinancialRecords = async (userID) => {
+  const url = `${API_URL}/financial/${userID}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.log("RESPONSE ERROR BODY:", text);
+    throw new Error('Failed to fetch financial records');
+  }
+
+  return response.json();
+};

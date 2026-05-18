@@ -270,8 +270,7 @@ export default function HomeScreen({ route, navigation }) {
   };
 
   const handleFinancije = () => {
-    // navigation.navigate('Financije');
-    console.log("Financije pressed");
+    navigation.navigate('Financije', { user });
   };
 
   const handleOdjava = () => {
