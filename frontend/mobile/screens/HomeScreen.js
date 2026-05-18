@@ -73,9 +73,8 @@ export default function HomeScreen({ route, navigation }) {
   };
 
   const handleShop = () => {
-    // navigation.navigate('Shop');
-    console.log('Shop pressed');
-  };
+      navigation.navigate('Catalogue', { user });
+    };
 
   const handleFinancije = () => {
     // navigation.navigate('Financije');
