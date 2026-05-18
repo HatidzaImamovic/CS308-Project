@@ -38,7 +38,7 @@ export default function FinancialScreen({ route, navigation }) {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const [activeSort, setActiveSort] = useState(SORT_OPTIONS[1]);
+  const [activeSort, setActiveSort] = useState(SORT_OPTIONS[0]);
   const [activeFilter, setActiveFilter] = useState(FILTER_OPTIONS[0]);
 
   useEffect(() => {

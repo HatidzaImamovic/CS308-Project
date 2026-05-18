@@ -1,5 +1,5 @@
 const config = {
-  API_URL: "http://192.168.68.123:3000", //use my IP address for now
+  API_URL: "http://10.0.87.128:3000", //use my IP address for now
 };
 
 export default config;
