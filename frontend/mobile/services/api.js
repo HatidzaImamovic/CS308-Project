@@ -42,6 +42,7 @@ export const createServiceOrder = async (orderData) => {
 
   return responseBody;
 };
+
 export const updateServiceOrderStatus = async (orderId, status) => {
   const response = await fetch(`${API_URL}/serviceorders/${orderId}/status`, {
     method: "PUT",
@@ -52,85 +53,146 @@ export const updateServiceOrderStatus = async (orderId, status) => {
   return response.json();
 };
 
-export const getFinancialRecords = async (userID) => {
-  const url = `${API_URL}/financial/${userID}`;
-  const response = await fetch(url);
+export const deleteServiceOrder = async (orderId) => {
+  const response = await fetch(`${API_URL}/serviceorders/${orderId}`, {
+    method: "DELETE",
+  });
+
   if (!response.ok) {
-    console.log("RESPONSE ERROR BODY:", text);
-    throw new Error('Failed to fetch financial records');
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || "Failed to delete service order");
   }
 
   return response.json();
+};
+
+export const updateServiceOrder = async (orderId, data) => {
+  const response = await fetch(`${API_URL}/serviceorders/${orderId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(body?.message || "Failed to update service order");
+  }
+
+  return body;
+};
+
+export const deleteAllServiceOrders = async (userId) => {
+  const response = await fetch(`${API_URL}/serviceorders/user/${userId}`, {
+    method: "DELETE",
+  });
+
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(body?.message || "Failed to delete all service orders");
+  }
+
+  return body;
+};
+
+export const getFinancialRecords = async (userID) => {
+  const response = await fetch(`${API_URL}/financial/${userID}`);
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(body?.error || "Failed to fetch financial records");
+  }
+
+  return body;
 };
 
 // ─── SHOP ────────────────────────────────────────────────
 
 export const getParts = async () => {
   const res = await fetch(`${API_URL}/spareparts`);
-  if (!res.ok) throw new Error('Failed to load parts');
+  if (!res.ok) throw new Error("Failed to load parts");
   return res.json();
 };
 
 export const getCart = async (userID) => {
   const res = await fetch(`${API_URL}/api/cart/${userID}`);
-  if (!res.ok) throw new Error('Failed to load cart');
+  if (!res.ok) throw new Error("Failed to load cart");
   return res.json();
 };
 
 export const addToCart = async (userID, partID, quantity = 1) => {
   const res = await fetch(`${API_URL}/api/cart/${userID}/items`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ partID, quantity }),
   });
+
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to add to cart');
+
+  if (!res.ok) throw new Error(data.error || "Failed to add to cart");
+
   return data;
 };
 
 export const updateCartItem = async (cartItemID, quantity) => {
   const res = await fetch(`${API_URL}/api/cart/items/${cartItemID}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quantity }),
   });
+
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to update');
+
+  if (!res.ok) throw new Error(data.error || "Failed to update");
+
   return data;
 };
 
 export const removeFromCart = async (cartItemID) => {
-  const res = await fetch(`${API_URL}/api/cart/items/${cartItemID}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to remove item');
+  const res = await fetch(`${API_URL}/api/cart/items/${cartItemID}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) throw new Error("Failed to remove item");
+
   return res.json();
 };
 
 export const submitOrder = async (userID) => {
   const res = await fetch(`${API_URL}/api/orders`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userID }),
   });
+
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to submit order');
+
+  if (!res.ok) throw new Error(data.error || "Failed to submit order");
+
   return data;
 };
 
 export const getUserOrders = async (userID) => {
   const res = await fetch(`${API_URL}/api/orders/user/${userID}`);
-  if (!res.ok) throw new Error('Failed to load orders');
+  if (!res.ok) throw new Error("Failed to load orders");
   return res.json();
 };
 
 export const getOrderDetails = async (orderID) => {
   const res = await fetch(`${API_URL}/api/orders/${orderID}`);
-  if (!res.ok) throw new Error('Failed to load order');
+  if (!res.ok) throw new Error("Failed to load order");
   return res.json();
 };
 
 export const cancelOrder = async (orderID) => {
-  const res = await fetch(`${API_URL}/api/orders/${orderID}/cancel`, { method: 'PATCH' });
+  const res = await fetch(`${API_URL}/api/orders/${orderID}/cancel`, {
+    method: "PATCH",
+  });
+
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to cancel');
+
+  if (!res.ok) throw new Error(data.error || "Failed to cancel");
+
   return data;
 };

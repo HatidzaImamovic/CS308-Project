@@ -8,21 +8,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ─── AUTH ─────────────────────────────────────────────────
-// Test endpoint to verify connection
+// ─── TEST ─────────────────────────────────────────────────
 app.get("/test", (req, res) => {
   res.json({ message: "Backend is working!", timestamp: new Date() });
 });
 
+// ─── AUTH ─────────────────────────────────────────────────
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
+
   try {
-    const [rows] = await db.query('SELECT * FROM user WHERE username = ?', [username]);
-    if (rows.length === 0) return res.status(401).json({ message: 'Pogrešno korisničko ime ili lozinka' });
+    const [rows] = await db.query("SELECT * FROM user WHERE username = ?", [
+      username,
+    ]);
+
+    if (rows.length === 0) {
+      return res
+        .status(401)
+        .json({ message: "Pogrešno korisničko ime ili lozinka" });
+    }
+
     const isMatch = await bcrypt.compare(password, rows[0].password);
-    if (isMatch) { res.json({ user: rows[0] }); }
-    else { res.status(401).json({ message: "Pogrešno korisničko ime ili lozinka" }); }
-  } catch (err) { res.status(500).json({ error: err.message }); }
+
+    if (isMatch) {
+      res.json({ user: rows[0] });
+    } else {
+      res.status(401).json({ message: "Pogrešno korisničko ime ili lozinka" });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── SPARE PARTS ──────────────────────────────────────────
@@ -30,183 +45,41 @@ app.get("/spareparts", async (req, res) => {
   try {
     const [rows] = await db.query("SELECT * FROM sparepart");
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get("/serviceorders/:userID", async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM serviceorder WHERE userID = ?', [req.params.userID]);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ─── CART ─────────────────────────────────────────────────
-app.get('/api/cart/:userID', async (req, res) => {
-  try {
-    const { userID } = req.params;
-    const [existing] = await db.query('SELECT cartID FROM cart WHERE userID = ?', [userID]);
-    let cartID;
-    if (existing.length > 0) {
-      cartID = existing[0].cartID;
-    } else {
-      const [result] = await db.query('INSERT INTO cart (userID, createdAt) VALUES (?, NOW())', [userID]);
-      cartID = result.insertId;
-    }
-    const [items] = await db.query(
-      `SELECT ci.cartItemID, ci.quantity, s.partID, s.name, s.description, s.price, s.stock
-       FROM cartitem ci JOIN sparepart s ON ci.partID = s.partID
-       WHERE ci.cartID = ?`, [cartID]
-    );
-    const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    res.json({ cartID, items, total });
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch cart' }); }
-});
-
-app.post('/api/cart/:userID/items', async (req, res) => {
-  try {
-    const { userID } = req.params;
-    const { partID, quantity = 1 } = req.body;
-    if (!partID) return res.status(400).json({ error: 'partID is required' });
-
-    const [parts] = await db.query('SELECT stock FROM sparepart WHERE partID = ?', [partID]);
-    if (parts.length === 0) return res.status(404).json({ error: 'Part not found' });
-    if (parts[0].stock < quantity) return res.status(400).json({ error: 'Not enough stock' });
-
-    const [existing] = await db.query('SELECT cartID FROM cart WHERE userID = ?', [userID]);
-    let cartID;
-    if (existing.length > 0) { cartID = existing[0].cartID; }
-    else {
-      const [result] = await db.query('INSERT INTO cart (userID, createdAt) VALUES (?, NOW())', [userID]);
-      cartID = result.insertId;
-    }
-
-    const [cartItem] = await db.query(
-      'SELECT cartItemID, quantity FROM cartitem WHERE cartID = ? AND partID = ?', [cartID, partID]
-    );
-    if (cartItem.length > 0) {
-      await db.query('UPDATE cartitem SET quantity = ? WHERE cartItemID = ?',
-        [cartItem[0].quantity + quantity, cartItem[0].cartItemID]);
-    } else {
-      await db.query('INSERT INTO cartitem (cartID, partID, quantity) VALUES (?, ?, ?)', [cartID, partID, quantity]);
-    }
-    res.json({ message: 'Item added to cart' });
-  } catch (err) { res.status(500).json({ error: 'Failed to add item to cart' }); }
-});
-
-app.put('/api/cart/items/:cartItemID', async (req, res) => {
-  try {
-    const { quantity } = req.body;
-    if (!quantity || quantity < 1) return res.status(400).json({ error: 'Quantity must be at least 1' });
-    await db.query('UPDATE cartitem SET quantity = ? WHERE cartItemID = ?', [quantity, req.params.cartItemID]);
-    res.json({ message: 'Quantity updated' });
-  } catch (err) { res.status(500).json({ error: 'Failed to update quantity' }); }
-});
-
-app.delete('/api/cart/items/:cartItemID', async (req, res) => {
-  try {
-    await db.query('DELETE FROM cartitem WHERE cartItemID = ?', [req.params.cartItemID]);
-    res.json({ message: 'Item removed' });
-  } catch (err) { res.status(500).json({ error: 'Failed to remove item' }); }
-});
-
-// ─── ORDERS ───────────────────────────────────────────────
-app.post('/api/orders', async (req, res) => {
-  try {
-    const { userID } = req.body;
-    if (!userID) return res.status(400).json({ error: 'userID is required' });
-
-    const [carts] = await db.query('SELECT cartID FROM cart WHERE userID = ?', [userID]);
-    if (carts.length === 0) return res.status(400).json({ error: 'No cart found' });
-    const cartID = carts[0].cartID;
-
-    const [items] = await db.query(
-      `SELECT ci.partID, ci.quantity, s.price, s.stock, s.name
-       FROM cartitem ci JOIN sparepart s ON ci.partID = s.partID WHERE ci.cartID = ?`, [cartID]
-    );
-    if (items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
-
-    for (const item of items) {
-      if (item.stock < item.quantity)
-        return res.status(400).json({ error: `Not enough stock for "${item.name}"` });
-    }
-
-    const [orderResult] = await db.query(
-      'INSERT INTO sparepartsorder (userID, status, submittedAt) VALUES (?, ?, NOW())', [userID, 'pending']
-    );
-    const sparePartsOrderID = orderResult.insertId;
-
-    for (const item of items) {
-      await db.query(
-        'INSERT INTO orderitem (sparePartsOrderID, partID, quantity, unitPrice) VALUES (?, ?, ?, ?)',
-        [sparePartsOrderID, item.partID, item.quantity, item.price]
-      );
-      await db.query('UPDATE sparepart SET stock = stock - ? WHERE partID = ?', [item.quantity, item.partID]);
-    }
-
-    await db.query('DELETE FROM cartitem WHERE cartID = ?', [cartID]);
-    res.status(201).json({ message: 'Order submitted', orderID: sparePartsOrderID });
-  } catch (err) { res.status(500).json({ error: 'Failed to submit order' }); }
-});
-
-app.get('/api/orders/user/:userID', async (req, res) => {
-  try {
-    const [orders] = await db.query(
-      'SELECT sparePartsOrderID, status, submittedAt FROM sparepartsorder WHERE userID = ? ORDER BY submittedAt DESC',
-      [req.params.userID]
-    );
-    res.json(orders);
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch orders' }); }
-});
-
-app.get('/api/orders/:orderID', async (req, res) => {
-  try {
-    const [orders] = await db.query('SELECT * FROM sparepartsorder WHERE sparePartsOrderID = ?', [req.params.orderID]);
-    if (orders.length === 0) return res.status(404).json({ error: 'Order not found' });
-    const [items] = await db.query(
-      `SELECT oi.itemID, oi.quantity, oi.unitPrice, s.partID, s.name
-       FROM orderitem oi JOIN sparepart s ON oi.partID = s.partID
-       WHERE oi.sparePartsOrderID = ?`, [req.params.orderID]
-    );
-    const total = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
-    res.json({ ...orders[0], items, total });
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch order' }); }
-});
-
-app.patch('/api/orders/:orderID/cancel', async (req, res) => {
-  try {
-    const [orders] = await db.query('SELECT status FROM sparepartsorder WHERE sparePartsOrderID = ?', [req.params.orderID]);
-    if (orders.length === 0) return res.status(404).json({ error: 'Order not found' });
-    if (orders[0].status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be cancelled' });
-
-    const [items] = await db.query('SELECT partID, quantity FROM orderitem WHERE sparePartsOrderID = ?', [req.params.orderID]);
-    for (const item of items) {
-      await db.query('UPDATE sparepart SET stock = stock + ? WHERE partID = ?', [item.quantity, item.partID]);
-    }
-    await db.query('UPDATE sparepartsorder SET status = ? WHERE sparePartsOrderID = ?', ['cancelled', req.params.orderID]);
-    res.json({ message: 'Order cancelled' });
-  } catch (err) { res.status(500).json({ error: 'Failed to cancel order' }); }
-});
-
-app.get('/financial/:userID', async (req, res) => {
-  try {
-    const userID = req.params.userID;
-
-    const query = `
-      SELECT f.*
-      FROM financialrecord f
-      JOIN serviceorder s ON f.serviceOrderID = s.serviceOrderID
-      WHERE s.userID = ?
-    `;
-
-    const [results] = await db.query(query, [userID]);
-
-
-    res.json(results);
-
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: err.message });
   }
 });
+
+// ─── SERVICE ORDERS ───────────────────────────────────────
+app.get("/serviceorders/:userID", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT so.*, d.serialNumber, d.ownerName AS name, d.model AS location, d.installDate AS date
+       FROM serviceorder so
+       LEFT JOIN device d ON so.deviceID = d.deviceID
+       WHERE so.userID = ?
+       ORDER BY so.createdAt DESC`,
+      [req.params.userID]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const findServiceOrder = async (id) => {
+  const [[order]] = await db.query(
+    `SELECT *
+     FROM serviceorder
+     WHERE serviceOrderID = ?
+     LIMIT 1`,
+    [id]
+  );
+
+  return order;
+};
+
 app.post("/serviceorders", async (req, res) => {
   const {
     serviceType,
@@ -229,6 +102,7 @@ app.post("/serviceorders", async (req, res) => {
   };
 
   const typeValue = typeMap[serviceType];
+
   if (!typeValue) {
     return res.status(400).json({ message: "Nevažeći tip servisa" });
   }
@@ -249,17 +123,24 @@ app.post("/serviceorders", async (req, res) => {
   try {
     const [deviceRows] = await db.query(
       "SELECT deviceID FROM device WHERE serialNumber = ?",
-      [serialNumber],
+      [serialNumber]
     );
 
     let deviceID;
+
     if (deviceRows.length > 0) {
       deviceID = deviceRows[0].deviceID;
+
+      await db.query(
+        "UPDATE device SET model = ?, installDate = ?, ownerName = ? WHERE deviceID = ?",
+        [location, date, name, deviceID]
+      );
     } else {
       const [deviceInsert] = await db.query(
         "INSERT INTO device (serialNumber, model, installDate, ownerName) VALUES (?, ?, ?, ?)",
-        [serialNumber, location, date, name],
+        [serialNumber, location, date, name]
       );
+
       deviceID = deviceInsert.insertId;
     }
 
@@ -267,11 +148,12 @@ app.post("/serviceorders", async (req, res) => {
 
     const [result] = await db.query(
       "INSERT INTO serviceorder (type, status, deviceID, userID, createdAt, description) VALUES (?, ?, ?, ?, NOW(), ?)",
-      [typeValue, statusValue, deviceID, userID, description],
+      [typeValue, statusValue, deviceID, userID, description]
     );
 
     res.status(201).json({
       id: result.insertId,
+      serviceOrderID: result.insertId,
       type: typeValue,
       status: statusValue,
       deviceID,
@@ -283,11 +165,106 @@ app.post("/serviceorders", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.put("/serviceorders/:id", async (req, res) => {
+  const { id } = req.params;
+  const { serviceType, serialNumber, name, location, date, status } = req.body;
+
+  const typeMap = {
+    Instalacija: "installation",
+    Popravak: "repair",
+    Održavanje: "maintenance",
+  };
+
+  const typeValue = serviceType ? typeMap[serviceType] || serviceType : null;
+
+  let normalizedStatus = null;
+
+  if (status === 0 || status === "0" || status === "otvoren") {
+    normalizedStatus = 0;
+  } else if (status === 1 || status === "1" || status === "zatvoren") {
+    normalizedStatus = 1;
+  }
+
+  try {
+    const existing = await findServiceOrder(id);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    let deviceID = existing.deviceID;
+
+    if (serialNumber) {
+      const [deviceRows] = await db.query(
+        "SELECT deviceID FROM device WHERE serialNumber = ?",
+        [serialNumber]
+      );
+
+      if (deviceRows.length > 0) {
+        deviceID = deviceRows[0].deviceID;
+      } else {
+        const [deviceInsert] = await db.query(
+          "INSERT INTO device (serialNumber, model, installDate, ownerName) VALUES (?, ?, ?, ?)",
+          [serialNumber, location || "", date || null, name || ""]
+        );
+
+        deviceID = deviceInsert.insertId;
+      }
+
+      await db.query(
+        "UPDATE device SET model = ?, installDate = ?, ownerName = ? WHERE deviceID = ?",
+        [location || "", date || null, name || "", deviceID]
+      );
+    }
+
+    const description = `Serial: ${serialNumber || ""}; Ime: ${name || ""}; Lokacija: ${location || ""}`;
+
+    const updates = [];
+    const params = [];
+
+    if (typeValue) {
+      updates.push("type = ?");
+      params.push(typeValue);
+    }
+
+    if (normalizedStatus !== null) {
+      updates.push("status = ?");
+      params.push(normalizedStatus);
+    }
+
+    if (deviceID) {
+      updates.push("deviceID = ?");
+      params.push(deviceID);
+    }
+
+    updates.push("description = ?");
+    params.push(description);
+
+    params.push(existing.serviceOrderID);
+
+    const sql = `UPDATE serviceorder SET ${updates.join(", ")} WHERE serviceOrderID = ? LIMIT 1`;
+
+    const [result] = await db.query(sql, params);
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "Servisni nalog nije pronađen za ažuriranje" });
+    }
+
+    res.json({ message: "Servisni nalog je ažuriran" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.put("/serviceorders/:id/status", async (req, res) => {
   const { status } = req.body;
   const { id } = req.params;
 
   let normalizedStatus = null;
+
   if (status === 0 || status === "0" || status === "otvoren") {
     normalizedStatus = 0;
   } else if (status === 1 || status === "1" || status === "zatvoren") {
@@ -301,9 +278,15 @@ app.put("/serviceorders/:id/status", async (req, res) => {
   }
 
   try {
+    const existing = await findServiceOrder(id);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
     const [result] = await db.query(
-      "UPDATE serviceorder SET status = ? WHERE id = ?",
-      [normalizedStatus, id],
+      "UPDATE serviceorder SET status = ? WHERE serviceOrderID = ? LIMIT 1",
+      [normalizedStatus, existing.serviceOrderID]
     );
 
     if (result.affectedRows === 0) {
@@ -315,4 +298,354 @@ app.put("/serviceorders/:id/status", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`Server running on http://0.0.0.0:${process.env.PORT || 3000}`));
+
+app.delete("/serviceorders/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const existing = await findServiceOrder(id);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    const [result] = await db.query(
+      "DELETE FROM serviceorder WHERE serviceOrderID = ? LIMIT 1",
+      [existing.serviceOrderID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    res.json({ message: "Servisni nalog je obrisan" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/serviceorders/user/:userID", async (req, res) => {
+  const { userID } = req.params;
+
+  try {
+    const [result] = await db.query(
+      "DELETE FROM serviceorder WHERE userID = ?",
+      [userID]
+    );
+
+    res.json({
+      message: "Deleted service orders",
+      affectedRows: result.affectedRows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// ─── FINANCIAL RECORDS ────────────────────────────────────
+app.get("/financial/:userID", async (req, res) => {
+  try {
+    const userID = req.params.userID;
+
+    const query = `
+      SELECT f.*
+      FROM financialrecord f
+      JOIN serviceorder s ON f.serviceOrderID = s.serviceOrderID
+      WHERE s.userID = ?
+    `;
+
+    const [results] = await db.query(query, [userID]);
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// ─── CART ─────────────────────────────────────────────────
+app.get("/api/cart/:userID", async (req, res) => {
+  try {
+    const { userID } = req.params;
+
+    const [existing] = await db.query(
+      "SELECT cartID FROM cart WHERE userID = ?",
+      [userID]
+    );
+
+    let cartID;
+
+    if (existing.length > 0) {
+      cartID = existing[0].cartID;
+    } else {
+      const [result] = await db.query(
+        "INSERT INTO cart (userID, createdAt) VALUES (?, NOW())",
+        [userID]
+      );
+
+      cartID = result.insertId;
+    }
+
+    const [items] = await db.query(
+      `SELECT ci.cartItemID, ci.quantity, s.partID, s.name, s.description, s.price, s.stock
+       FROM cartitem ci 
+       JOIN sparepart s ON ci.partID = s.partID
+       WHERE ci.cartID = ?`,
+      [cartID]
+    );
+
+    const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    res.json({ cartID, items, total });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch cart" });
+  }
+});
+
+app.post("/api/cart/:userID/items", async (req, res) => {
+  try {
+    const { userID } = req.params;
+    const { partID, quantity = 1 } = req.body;
+
+    if (!partID) {
+      return res.status(400).json({ error: "partID is required" });
+    }
+
+    const [parts] = await db.query("SELECT stock FROM sparepart WHERE partID = ?", [
+      partID,
+    ]);
+
+    if (parts.length === 0) {
+      return res.status(404).json({ error: "Part not found" });
+    }
+
+    if (parts[0].stock < quantity) {
+      return res.status(400).json({ error: "Not enough stock" });
+    }
+
+    const [existing] = await db.query(
+      "SELECT cartID FROM cart WHERE userID = ?",
+      [userID]
+    );
+
+    let cartID;
+
+    if (existing.length > 0) {
+      cartID = existing[0].cartID;
+    } else {
+      const [result] = await db.query(
+        "INSERT INTO cart (userID, createdAt) VALUES (?, NOW())",
+        [userID]
+      );
+
+      cartID = result.insertId;
+    }
+
+    const [cartItem] = await db.query(
+      "SELECT cartItemID, quantity FROM cartitem WHERE cartID = ? AND partID = ?",
+      [cartID, partID]
+    );
+
+    if (cartItem.length > 0) {
+      await db.query("UPDATE cartitem SET quantity = ? WHERE cartItemID = ?", [
+        cartItem[0].quantity + quantity,
+        cartItem[0].cartItemID,
+      ]);
+    } else {
+      await db.query(
+        "INSERT INTO cartitem (cartID, partID, quantity) VALUES (?, ?, ?)",
+        [cartID, partID, quantity]
+      );
+    }
+
+    res.json({ message: "Item added to cart" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to add item to cart" });
+  }
+});
+
+app.put("/api/cart/items/:cartItemID", async (req, res) => {
+  try {
+    const { quantity } = req.body;
+
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({ error: "Quantity must be at least 1" });
+    }
+
+    await db.query("UPDATE cartitem SET quantity = ? WHERE cartItemID = ?", [
+      quantity,
+      req.params.cartItemID,
+    ]);
+
+    res.json({ message: "Quantity updated" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update quantity" });
+  }
+});
+
+app.delete("/api/cart/items/:cartItemID", async (req, res) => {
+  try {
+    await db.query("DELETE FROM cartitem WHERE cartItemID = ?", [
+      req.params.cartItemID,
+    ]);
+
+    res.json({ message: "Item removed" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to remove item" });
+  }
+});
+
+// ─── ORDERS ───────────────────────────────────────────────
+app.post("/api/orders", async (req, res) => {
+  try {
+    const { userID } = req.body;
+
+    if (!userID) {
+      return res.status(400).json({ error: "userID is required" });
+    }
+
+    const [carts] = await db.query("SELECT cartID FROM cart WHERE userID = ?", [
+      userID,
+    ]);
+
+    if (carts.length === 0) {
+      return res.status(400).json({ error: "No cart found" });
+    }
+
+    const cartID = carts[0].cartID;
+
+    const [items] = await db.query(
+      `SELECT ci.partID, ci.quantity, s.price, s.stock, s.name
+       FROM cartitem ci 
+       JOIN sparepart s ON ci.partID = s.partID 
+       WHERE ci.cartID = ?`,
+      [cartID]
+    );
+
+    if (items.length === 0) {
+      return res.status(400).json({ error: "Cart is empty" });
+    }
+
+    for (const item of items) {
+      if (item.stock < item.quantity) {
+        return res
+          .status(400)
+          .json({ error: `Not enough stock for "${item.name}"` });
+      }
+    }
+
+    const [orderResult] = await db.query(
+      "INSERT INTO sparepartsorder (userID, status, submittedAt) VALUES (?, ?, NOW())",
+      [userID, "pending"]
+    );
+
+    const sparePartsOrderID = orderResult.insertId;
+
+    for (const item of items) {
+      await db.query(
+        "INSERT INTO orderitem (sparePartsOrderID, partID, quantity, unitPrice) VALUES (?, ?, ?, ?)",
+        [sparePartsOrderID, item.partID, item.quantity, item.price]
+      );
+
+      await db.query("UPDATE sparepart SET stock = stock - ? WHERE partID = ?", [
+        item.quantity,
+        item.partID,
+      ]);
+    }
+
+    await db.query("DELETE FROM cartitem WHERE cartID = ?", [cartID]);
+
+    res.status(201).json({
+      message: "Order submitted",
+      orderID: sparePartsOrderID,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to submit order" });
+  }
+});
+
+app.get("/api/orders/user/:userID", async (req, res) => {
+  try {
+    const [orders] = await db.query(
+      "SELECT sparePartsOrderID, status, submittedAt FROM sparepartsorder WHERE userID = ? ORDER BY submittedAt DESC",
+      [req.params.userID]
+    );
+
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+app.get("/api/orders/:orderID", async (req, res) => {
+  try {
+    const [orders] = await db.query(
+      "SELECT * FROM sparepartsorder WHERE sparePartsOrderID = ?",
+      [req.params.orderID]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const [items] = await db.query(
+      `SELECT oi.itemID, oi.quantity, oi.unitPrice, s.partID, s.name
+       FROM orderitem oi 
+       JOIN sparepart s ON oi.partID = s.partID
+       WHERE oi.sparePartsOrderID = ?`,
+      [req.params.orderID]
+    );
+
+    const total = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+
+    res.json({ ...orders[0], items, total });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch order" });
+  }
+});
+
+app.patch("/api/orders/:orderID/cancel", async (req, res) => {
+  try {
+    const [orders] = await db.query(
+      "SELECT status FROM sparepartsorder WHERE sparePartsOrderID = ?",
+      [req.params.orderID]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (orders[0].status !== "pending") {
+      return res
+        .status(400)
+        .json({ error: "Only pending orders can be cancelled" });
+    }
+
+    const [items] = await db.query(
+      "SELECT partID, quantity FROM orderitem WHERE sparePartsOrderID = ?",
+      [req.params.orderID]
+    );
+
+    for (const item of items) {
+      await db.query("UPDATE sparepart SET stock = stock + ? WHERE partID = ?", [
+        item.quantity,
+        item.partID,
+      ]);
+    }
+
+    await db.query(
+      "UPDATE sparepartsorder SET status = ? WHERE sparePartsOrderID = ?",
+      ["cancelled", req.params.orderID]
+    );
+
+    res.json({ message: "Order cancelled" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to cancel order" });
+  }
+});
+
+// ─── SERVER ───────────────────────────────────────────────
+app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
+  console.log(
+    `Server running on http://0.0.0.0:${process.env.PORT || 3000}`
+  );
+});

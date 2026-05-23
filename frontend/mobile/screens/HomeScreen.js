@@ -228,16 +228,10 @@ export default function HomeScreen({ route, navigation }) {
             isDraft: false,
           }));
 
-          const openBackend = backendOrders.filter(
-            (order) => Number(order.status) === 0,
-          ).length;
-          const closedBackend = backendOrders.filter(
-            (order) => Number(order.status) === 1,
-          ).length;
           const openDrafts = draftOrders.length;
 
-          setOpenCount(openBackend + openDrafts);
-          setClosedCount(closedBackend);
+          setOpenCount(openDrafts);
+          setClosedCount(backendOrders.length);
 
           const recentCombined = [...draftOrders, ...backendOrders]
             .sort((a, b) => {

@@ -12,7 +12,7 @@ import {
   FlatList,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createServiceOrder } from "../services/api";
+import { createServiceOrder, updateServiceOrder } from "../services/api";
 import styles from "./styles/createServiceOrderScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
@@ -34,14 +34,23 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     date: new Date().toISOString().split("T")[0], // Current date in YYYY-MM-DD format
   });
   const [draftId, setDraftId] = useState(null);
+  const [editServerId, setEditServerId] = useState(null);
   const [errors, setErrors] = useState({});
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
   const saveTimeout = useRef(null);
+  const isEditingServerOrder = Boolean(editServerId);
 
   useEffect(() => {
     const draft = route?.params?.draft;
     if (draft) {
-      setDraftId(draft.id);
+      // If this draft comes from a server order (we're editing a closed order),
+      // avoid treating it as a local draft to prevent autosave/duplication.
+      if (draft.isServer) {
+        setEditServerId(draft.id);
+        setDraftId(null);
+      } else {
+        setDraftId(String(draft.id));
+      }
       setFormData({
         serviceType: draft.serviceType || "",
         serialNumber: draft.serialNumber || "",
@@ -49,6 +58,17 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
         location: draft.location || "",
         date: draft.date || new Date().toISOString().split("T")[0],
       });
+      // remove any stale local draft that might have the same id string
+      (async () => {
+        try {
+          const userId = user?.id || user?.userID;
+          if (userId && draft.isServer) {
+            await removeDraft(userId, String(draft.id));
+          }
+        } catch (e) {
+          // ignore
+        }
+      })();
     }
   }, [route?.params?.draft]);
 
@@ -106,9 +126,11 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     const draftKey = DRAFTS_STORAGE_KEY(userId);
     const draftJson = await AsyncStorage.getItem(draftKey);
     const existingDrafts = draftJson ? JSON.parse(draftJson) : [];
-    const newDraftId = currentDraftId || Date.now().toString();
+    const newDraftId = currentDraftId
+      ? String(currentDraftId)
+      : Date.now().toString();
     const newDraft = {
-      id: newDraftId,
+      id: String(newDraftId),
       ...currentFormData,
       userID: userId,
       isDraft: true,
@@ -119,11 +141,13 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     };
     const updatedDrafts = [
       newDraft,
-      ...existingDrafts.filter((draft) => draft.id !== newDraftId),
+      ...existingDrafts.filter(
+        (draft) => String(draft.id) !== String(newDraftId),
+      ),
     ];
     await AsyncStorage.setItem(draftKey, JSON.stringify(updatedDrafts));
-    setDraftId(newDraftId);
-    return newDraftId;
+    setDraftId(String(newDraftId));
+    return String(newDraftId);
   };
 
   const handleSubmit = async () => {
@@ -145,11 +169,22 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
           status: 1,
         };
 
-        console.log("Creating service order", orderData);
-        const result = await createServiceOrder(orderData);
+        if (editServerId) {
+          // update existing server order
+          await updateServiceOrder(editServerId, {
+            serviceType: orderData.serviceType,
+            serialNumber: orderData.serialNumber,
+            name: orderData.name,
+            location: orderData.location,
+            date: orderData.date,
+          });
+        } else {
+          console.log("Creating service order", orderData);
+          await createServiceOrder(orderData);
 
-        if (draftId) {
-          await removeDraft(userId, draftId);
+          if (draftId) {
+            await removeDraft(userId, draftId);
+          }
         }
 
         Alert.alert("Uspjeh", "Servisni nalog je uspješno kreiran!", [
@@ -182,7 +217,9 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     try {
       const draftJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
       const drafts = draftJson ? JSON.parse(draftJson) : [];
-      const updatedDrafts = drafts.filter((draft) => draft.id !== id);
+      const updatedDrafts = drafts.filter(
+        (draft) => String(draft.id) !== String(id),
+      );
       await AsyncStorage.setItem(
         DRAFTS_STORAGE_KEY(userId),
         JSON.stringify(updatedDrafts),
@@ -232,11 +269,14 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
       clearTimeout(saveTimeout.current);
     }
 
-    saveTimeout.current = setTimeout(() => {
-      saveDraftData(userId, formData, draftId).catch((err) => {
-        console.error("Error autosaving draft:", err);
-      });
-    }, 800);
+    // Don't autosave when editing a server order (we don't want to create a local draft)
+    if (!editServerId) {
+      saveTimeout.current = setTimeout(() => {
+        saveDraftData(userId, formData, draftId).catch((err) => {
+          console.error("Error autosaving draft:", err);
+        });
+      }, 800);
+    }
 
     return () => {
       if (saveTimeout.current) {
@@ -262,7 +302,9 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Novi servisni nalog</Text>
+        <Text style={styles.headerTitle}>
+          {isEditingServerOrder ? "Uredi servisni nalog" : "Novi servisni nalog"}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -353,7 +395,9 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
 
           {/* Submit Button */}
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Kreiraj nalog</Text>
+            <Text style={styles.submitButtonText}>
+              {isEditingServerOrder ? "Azuriraj nalog" : "Kreiraj nalog"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
