@@ -258,14 +258,12 @@ export default function HomeScreen({ route, navigation }) {
     }, [user]),
   );
 
-  const handleShop = () => {
-    // navigation.navigate('Shop');
-    console.log("Shop pressed");
-  };
+const handleShop = () => {
+  navigation.navigate('Catalogue', { user });
+};
 
   const handleFinancije = () => {
-    // navigation.navigate('Financije');
-    console.log("Financije pressed");
+    navigation.navigate('Financije', { user });
   };
 
   const handleOdjava = () => {
