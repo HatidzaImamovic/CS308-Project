@@ -51,3 +51,38 @@ export const updateServiceOrderStatus = async (orderId, status) => {
   if (!response.ok) throw new Error("Failed to update service order status");
   return response.json();
 };
+
+export const deleteServiceOrder = async (orderId) => {
+  const response = await fetch(`${API_URL}/serviceorders/${orderId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || "Failed to delete service order");
+  }
+  return response.json();
+};
+
+export const updateServiceOrder = async (orderId, data) => {
+  const response = await fetch(`${API_URL}/serviceorders/${orderId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(body?.message || "Failed to update service order");
+  }
+  return body;
+};
+
+export const deleteAllServiceOrders = async (userId) => {
+  const response = await fetch(`${API_URL}/serviceorders/user/${userId}`, {
+    method: "DELETE",
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(body?.message || "Failed to delete all service orders");
+  }
+  return body;
+};

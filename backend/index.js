@@ -52,7 +52,11 @@ app.get("/spareparts", async (req, res) => {
 app.get("/serviceorders/:userID", async (req, res) => {
   try {
     const [rows] = await db.query(
-      "SELECT * FROM serviceorder WHERE userID = ? ORDER BY createdAt DESC",
+      `SELECT so.*, d.serialNumber, d.ownerName AS name, d.model AS location, d.installDate AS date
+       FROM serviceorder so
+       LEFT JOIN device d ON so.deviceID = d.deviceID
+       WHERE so.userID = ?
+       ORDER BY so.createdAt DESC`,
       [req.params.userID],
     );
     res.json(rows);
@@ -60,6 +64,152 @@ app.get("/serviceorders/:userID", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+const findServiceOrder = async (id) => {
+  const [[order]] = await db.query(
+    `SELECT *
+     FROM serviceorder
+     WHERE serviceOrderID = ?
+     LIMIT 1`,
+    [id],
+  );
+  return order;
+};
+
+// Delete a service order by serviceOrderID.
+app.delete("/serviceorders/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const existing = await findServiceOrder(id);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Servisni nalog nije pronaÄ‘en" });
+    }
+
+    const [result] = await db.query(
+      "DELETE FROM serviceorder WHERE serviceOrderID = ? LIMIT 1",
+      [existing.serviceOrderID],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    res.json({ message: "Servisni nalog je obrisan" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update an existing service order by serviceOrderID.
+app.put("/serviceorders/:id", async (req, res) => {
+  const { id } = req.params;
+  const { serviceType, serialNumber, name, location, date, status } = req.body;
+
+  const typeMap = {
+    Instalacija: "installation",
+    Popravak: "repair",
+    Održavanje: "maintenance",
+  };
+  const typeValue = serviceType ? typeMap[serviceType] || serviceType : null;
+
+  let normalizedStatus = null;
+  if (status === 0 || status === "0" || status === "otvoren")
+    normalizedStatus = 0;
+  else if (status === 1 || status === "1" || status === "zatvoren")
+    normalizedStatus = 1;
+
+  try {
+    // find existing order
+    const existing = await findServiceOrder(id);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    let deviceID = existing.deviceID;
+
+    if (serialNumber) {
+      const [deviceRows] = await db.query(
+        "SELECT deviceID FROM device WHERE serialNumber = ?",
+        [serialNumber],
+      );
+      if (deviceRows.length > 0) {
+        deviceID = deviceRows[0].deviceID;
+      } else {
+        const [deviceInsert] = await db.query(
+          "INSERT INTO device (serialNumber, model, installDate, ownerName) VALUES (?, ?, ?, ?)",
+          [serialNumber, location || "", date || null, name || ""],
+        );
+        deviceID = deviceInsert.insertId;
+      }
+
+      await db.query(
+        "UPDATE device SET model = ?, installDate = ?, ownerName = ? WHERE deviceID = ?",
+        [location || "", date || null, name || "", deviceID],
+      );
+    }
+
+    const newDesc = `Serial: ${serialNumber || ""}; Ime: ${name || ""}; Lokacija: ${location || ""}`;
+
+    const updates = [];
+    const params = [];
+
+    if (typeValue) {
+      updates.push("type = ?");
+      params.push(typeValue);
+    }
+    if (normalizedStatus !== null) {
+      updates.push("status = ?");
+      params.push(normalizedStatus);
+    }
+    if (deviceID) {
+      updates.push("deviceID = ?");
+      params.push(deviceID);
+    }
+    if (newDesc) {
+      updates.push("description = ?");
+      params.push(newDesc);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: "Nema polja za ažuriranje" });
+    }
+
+    params.push(existing.serviceOrderID);
+
+    const sql = `UPDATE serviceorder SET ${updates.join(", ")} WHERE serviceOrderID = ? LIMIT 1`;
+    const [result] = await db.query(sql, params);
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: "Servisni nalog nije pronađen za ažuriranje" });
+    }
+
+    res.json({ message: "Servisni nalog je ažuriran" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete all service orders for a user (dangerous: dev helper)
+app.delete("/serviceorders/user/:userID", async (req, res) => {
+  const { userID } = req.params;
+  try {
+    const [result] = await db.query(
+      "DELETE FROM serviceorder WHERE userID = ?",
+      [userID],
+    );
+    res.json({
+      message: "Deleted service orders",
+      affectedRows: result.affectedRows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/serviceorders", async (req, res) => {
   const {
     serviceType,
@@ -108,6 +258,10 @@ app.post("/serviceorders", async (req, res) => {
     let deviceID;
     if (deviceRows.length > 0) {
       deviceID = deviceRows[0].deviceID;
+      await db.query(
+        "UPDATE device SET model = ?, installDate = ?, ownerName = ? WHERE deviceID = ?",
+        [location, date, name, deviceID],
+      );
     } else {
       const [deviceInsert] = await db.query(
         "INSERT INTO device (serialNumber, model, installDate, ownerName) VALUES (?, ?, ?, ?)",
@@ -125,6 +279,7 @@ app.post("/serviceorders", async (req, res) => {
 
     res.status(201).json({
       id: result.insertId,
+      serviceOrderID: result.insertId,
       type: typeValue,
       status: statusValue,
       deviceID,
@@ -154,9 +309,15 @@ app.put("/serviceorders/:id/status", async (req, res) => {
   }
 
   try {
+    const existing = await findServiceOrder(id);
+
+    if (!existing) {
+      return res.status(404).json({ message: "Servisni nalog nije pronaÄ‘en" });
+    }
+
     const [result] = await db.query(
-      "UPDATE serviceorder SET status = ? WHERE id = ?",
-      [normalizedStatus, id],
+      "UPDATE serviceorder SET status = ? WHERE serviceOrderID = ? LIMIT 1",
+      [normalizedStatus, existing.serviceOrderID],
     );
 
     if (result.affectedRows === 0) {

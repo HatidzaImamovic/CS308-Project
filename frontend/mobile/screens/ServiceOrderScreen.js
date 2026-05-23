@@ -13,7 +13,10 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { getServiceOrders, updateServiceOrderStatus } from "../services/api";
+import {
+  getServiceOrders,
+  deleteServiceOrder,
+} from "../services/api";
 import styles from "./styles/serviceOrderScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
@@ -74,7 +77,7 @@ const normalizeOrderType = (order) => {
 };
 
 const ServiceOrderItem = ({ item, onPress }) => {
-  const isDraft = item.isDraft || item.status === 0 || item.status === "0";
+  const isDraft = item.isDraft === true;
   const statusText = isDraft ? "Otvoren" : "Zatvoren";
   const statusColor = isDraft ? "#ffc107" : "#28a745";
   const orderType = getTypeText(normalizeOrderType(item));
@@ -107,7 +110,7 @@ const ServiceOrderItem = ({ item, onPress }) => {
 };
 
 export default function ServiceOrderScreen({ route, navigation }) {
-  const { user } = route?.params || {};
+  const { user, disableCreate } = route?.params || {};
   const [serviceOrders, setServiceOrders] = useState([]);
   const [draftOrders, setDraftOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -172,50 +175,116 @@ export default function ServiceOrderScreen({ route, navigation }) {
   };
 
   const handleOrderPress = async (order) => {
-    if (order.isDraft) {
-      navigation.navigate("CreateServiceOrder", { user, draft: order });
-      return;
-    }
+    const orderId = order.id || order.serviceOrderID;
+    const isDraft = order.isDraft === true;
 
-    const orderId = order.serviceOrderID || order.id;
-    const isClosed = order.status === 1 || order.status === "1";
-    const newStatus = isClosed ? 0 : 1;
-    const statusText = isClosed ? "otvoriti" : "zatvoriti";
+    const toCreatePayload = (o, server = false) => {
+      const typeMap = {
+        installation: "Instalacija",
+        repair: "Popravak",
+        maintenance: "Održavanje",
+        Instalacija: "Instalacija",
+        Popravak: "Popravak",
+        Održavanje: "Održavanje",
+      };
 
-    Alert.alert(
-      "Promjena statusa",
-      `Želite li ${statusText} servisni nalog #${orderId}?`,
-      [
+      return {
+        id: o.id || o.serviceOrderID,
+        isServer: server,
+        serviceType:
+          typeMap[o.type] ||
+          typeMap[o.serviceType] ||
+          o.type ||
+          o.serviceType ||
+          "",
+        serialNumber: o.serialNumber || "",
+        name: o.name || o.ownerName || "",
+        location: o.location || o.description || "",
+        date: (o.date || o.createdAt || o.installDate || "")
+          .toString()
+          .split("T")[0],
+      };
+    };
+
+    if (isDraft) {
+      Alert.alert(`Nalog #${orderId}`, "Odaberite akciju", [
         { text: "Odustani", style: "cancel" },
         {
-          text: "Potvrdi",
+          text: "Obriši",
+          style: "destructive",
           onPress: async () => {
             try {
-              await updateServiceOrderStatus(orderId, newStatus);
-              loadServiceOrders();
-            } catch (error) {
-              console.error("Error updating status:", error);
-              Alert.alert(
-                "Greška",
-                "Nije moguće ažurirati status servisnog naloga",
+              const userId = user?.id || user?.userID;
+              // remove draft locally from AsyncStorage
+              const draftKey = DRAFTS_STORAGE_KEY(userId);
+              const draftJson = await AsyncStorage.getItem(draftKey);
+              const drafts = draftJson ? JSON.parse(draftJson) : [];
+              const updated = drafts.filter(
+                (d) => String(d.id) !== String(order.id),
               );
+              await AsyncStorage.setItem(draftKey, JSON.stringify(updated));
+              await loadDraftOrders(userId);
+            } catch (err) {
+              console.error("Error deleting draft:", err);
+              Alert.alert("Greška", "Nije moguće obrisati nalog");
             }
           },
         },
-      ],
-    );
+        {
+          text: "Uredi",
+          onPress: () =>
+            navigation.navigate("CreateServiceOrder", {
+              user,
+              draft: toCreatePayload(order, false),
+            }),
+        },
+      ]);
+      return;
+    }
+
+    // server order actions
+    Alert.alert(`Nalog #${orderId}`, "Odaberite akciju", [
+      { text: "Odustani", style: "cancel" },
+      {
+        text: "Obriši",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteServiceOrder(orderId);
+            loadServiceOrders();
+          } catch (err) {
+            console.error("Error deleting order:", err);
+            Alert.alert("Greška", "Nije moguće obrisati nalog");
+          }
+        },
+      },
+      {
+        text: "Uredi",
+        onPress: () =>
+          navigation.navigate("CreateServiceOrder", {
+            user,
+            draft: toCreatePayload(order, true),
+          }),
+      },
+    ]);
   };
 
   const filteredOrders = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     let ordersToFilter = [];
+    const serverIds = new Set(
+      serviceOrders.map((o) => String(o.id || o.serviceOrderID)),
+    );
 
     if (statusFilter === "open") {
-      ordersToFilter = draftOrders;
+      ordersToFilter = draftOrders.filter((d) => !serverIds.has(String(d.id)));
     } else if (statusFilter === "closed") {
       ordersToFilter = serviceOrders;
     } else {
-      ordersToFilter = [...draftOrders, ...serviceOrders];
+      ordersToFilter = [
+        ...draftOrders.filter((d) => !serverIds.has(String(d.id))),
+        ...serviceOrders,
+      ];
     }
 
     return ordersToFilter
@@ -371,7 +440,11 @@ export default function ServiceOrderScreen({ route, navigation }) {
         ) : (
           <FlatList
             data={filteredOrders}
-            keyExtractor={(item) => String(item.serviceOrderID || item.id)}
+            keyExtractor={(item) =>
+              item.isDraft
+                ? `draft-${String(item.id || item.serviceOrderID || Math.random())}`
+                : `so-${String(item.id || item.serviceOrderID || Math.random())}`
+            }
             renderItem={({ item }) => (
               <ServiceOrderItem
                 item={item}
@@ -386,9 +459,11 @@ export default function ServiceOrderScreen({ route, navigation }) {
         )}
       </View>
 
-      <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
-        <Text style={styles.addButtonText}>+</Text>
-      </TouchableOpacity>
+      {!disableCreate && (
+        <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
