@@ -27,10 +27,10 @@ export default function PartDetailScreen({ route, navigation }) {
     <View style={styles.container}>
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Nazad</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle}>Detalji dijela</Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 44 }} />
       </View>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <View style={styles.card}>

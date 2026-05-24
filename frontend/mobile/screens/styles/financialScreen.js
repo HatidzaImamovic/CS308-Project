@@ -1,245 +1,224 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet } from "react-native";
 
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#446977',
+    backgroundColor: "#446977",
+  },
+  header: {
+    backgroundColor: "#446977",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingVertical: 14,
   },
-
   backButton: {
-    marginBottom: 14,
-    alignSelf: 'flex-start',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-
   backButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "700",
   },
-
-  // Chip rows (filter + sort scroll views) 
-
-chipRow: {
-  marginBottom: 10,
-  flexGrow: 0,
-  height: 44,  
-},
-
-chipRowLast: {
-  marginBottom: 16,
-  flexGrow: 0,
-  height: 44,  
-},
-
-
-  chipRowContent: {
-    gap: 8,
-    paddingRight: 4,
-  },
-
-  // Summary box 
-
-  summaryBox: {
-    backgroundColor: '#7aa7b8',
-    borderRadius: 14,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#ffffff',
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-
-  summaryLabel: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 6,
-    letterSpacing: 1,
-  },
-
-  summaryAmount: {
-    color: '#ffffff',
-    fontSize: 32,
-    fontWeight: '700',
-  },
-
-  summaryCount: {
-    color: '#ffffff',
-    fontSize: 14,
-    marginTop: 4,
-  },
-
-  // List 
-
-  list: {
-    paddingBottom: 30
-    ,
-  },
-
-  // Card 
-
-  card: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#7aa7b8',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#ffffff',
-  },
-
-  cardLeft: {
+  headerTitle: {
     flex: 1,
-    marginRight: 12,
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
   },
-
-  cardRight: {
-    alignItems: 'flex-end',
+  headerSpacer: {
+    width: 44,
   },
-
-  cardTitle: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
+  filterContainer: {
+    padding: 16,
+    backgroundColor: "#7aa7b8",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 6,
   },
-
-  cardDate: {
-    color: '#ffffff',
+  filterScroll: {
+    flexGrow: 0,
+  },
+  filterScrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 4,
+  },
+  filterChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: "#1ca8b2",
+    borderColor: "#1ca8b2",
+  },
+  filterChipText: {
+    color: "#d4e2ea",
     fontSize: 13,
-    marginTop: 4,
+    fontWeight: "600",
   },
-
-  cardAmount: {
-    color: '#ffffff',
+  filterChipTextActive: {
+    color: "#ffffff",
+  },
+  content: {
+    flex: 1,
+    backgroundColor: "#446977",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+  },
+  list: {
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  card: {
+    backgroundColor: "#7aa7b8",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  cardTitle: {
+    color: "#ffffff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "800",
+    flex: 1,
+    marginRight: 10,
+  },
+  cardSubtitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
     marginBottom: 6,
   },
-
-  // Status badge
-  statusBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  statusPaid: {
-    backgroundColor: '#1ca8b2',
-  },
-
-  statusPending: {
-    backgroundColor: '#e05a5a',
-  },
-
-  statusText: {
-    color: '#ffffff',
+  cardDate: {
+    color: "#bec5d5",
     fontSize: 12,
-    fontWeight: '600',
   },
-
-  // Filter / sort chips
-
-  filterButton: {
-    height: 36,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardAmount: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 8,
   },
-
-  // States
-
+  statusBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statusPaid: {
+    backgroundColor: "rgba(40, 167, 69, 0.2)",
+  },
+  statusPending: {
+    backgroundColor: "rgba(255, 193, 7, 0.2)",
+  },
+  statusText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
   },
-
   loadingText: {
     marginTop: 10,
-    color: '#ffffff',
-  },
-
-  errorText: {
-    color: '#ff3232',
-    marginBottom: 10,
-    fontSize: 14,
-  },
-
-  retryButton: {
-    backgroundColor: '#1ca8b2',
-    padding: 12,
-    borderRadius: 10,
-  },
-
-  retryText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-
-  emptyText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
   },
-
-  // Modal
-
+  errorText: {
+    color: "#dc3545",
+    marginBottom: 20,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#1ca8b2",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: "#ffffff",
+    fontWeight: "700",
+  },
+  emptyText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-
   modalContent: {
-    backgroundColor: '#7aa7b8',
-    borderRadius: 16,
+    backgroundColor: "#7aa7b8",
+    borderRadius: 18,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#ffffff',
-    maxHeight: '80%',
+    borderColor: "#ffffff",
+    width: "88%",
+    maxHeight: "80%",
   },
-
   modalTitle: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "800",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
-
   detailRow: {
     marginBottom: 12,
   },
-
   detailLabel: {
-    color: '#ffffff',
+    color: "#bec5d5",
     fontSize: 13,
-    opacity: 0.8,
   },
-
   detailValue: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "700",
+    marginTop: 2,
   },
-
   closeButton: {
     marginTop: 15,
-    backgroundColor: '#1ca8b2',
+    backgroundColor: "#1ca8b2",
     padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
+    borderRadius: 12,
+    alignItems: "center",
   },
-
   closeButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
+    color: "#ffffff",
+    fontWeight: "700",
   },
 });

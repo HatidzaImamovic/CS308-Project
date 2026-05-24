@@ -6,7 +6,6 @@ import { getUserOrders, cancelOrder } from '../../services/api';
 
 const STATUS = {
   pending:   { label: 'Na čekanju', color: '#f59e0b', bg: 'rgba(245,158,11,0.2)' },
-  cancelled: { label: 'Otkazano',   color: '#ff3232', bg: 'rgba(255,50,50,0.2)'  },
   completed: { label: 'Završeno',   color: '#4caf50', bg: 'rgba(76,175,80,0.2)'  },
 };
 
@@ -67,10 +66,10 @@ export default function OrderHistoryScreen({ route, navigation }) {
     <View style={styles.container}>
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Nazad</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle}>Moje narudžbe</Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 44 }} />
       </View>
       <FlatList
         data={orders}

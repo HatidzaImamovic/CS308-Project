@@ -42,10 +42,10 @@ export default function OrderConfirmScreen({ route, navigation }) {
           ))}
         </View>
 
-        <TouchableOpacity style={[styles.button, { marginBottom: 12 }]} onPress={() => navigation.navigate('Catalogue', { user })}>
+        <TouchableOpacity style={[styles.button, { marginBottom: 12 }]} onPress={() => navigation.replace('Catalogue', { user })}>
           <Text style={styles.buttonText}>Nazad na katalog</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={localStyles.outlineBtn} onPress={() => navigation.navigate('OrderHistory', { user })}>
+        <TouchableOpacity style={localStyles.outlineBtn} onPress={() => navigation.replace('OrderHistory', { user })}>
           <Text style={localStyles.outlineBtnText}>Pogledaj sve narudžbe</Text>
         </TouchableOpacity>
       </ScrollView>

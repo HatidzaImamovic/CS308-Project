@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { addToCart, getParts } from '../../services/api';
 import styles, { COLORS } from '../styles/shopStyles';
-import { getParts, addToCart } from '../../services/api';
 
 export default function CatalogueScreen({ route, navigation }) {
   const { user } = route.params;
@@ -11,7 +20,9 @@ export default function CatalogueScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [addingID, setAddingID] = useState(null);
 
-  useEffect(() => { fetchParts(); }, []);
+  useEffect(() => {
+    fetchParts();
+  }, []);
 
   const fetchParts = async () => {
     try {
@@ -27,15 +38,25 @@ export default function CatalogueScreen({ route, navigation }) {
 
   const handleSearch = (text) => {
     setSearch(text);
-    setFiltered(!text ? parts : parts.filter(p => p.name.toLowerCase().includes(text.toLowerCase())));
+    setFiltered(
+      !text
+        ? parts
+        : parts.filter((part) =>
+            part.name.toLowerCase().includes(text.toLowerCase()),
+          ),
+    );
   };
 
   const handleAddToCart = async (part) => {
-    if (part.stock === 0) { Alert.alert('Nema na stanju', 'Ovaj dio trenutno nije dostupan.'); return; }
+    if (part.stock === 0) {
+      Alert.alert('Nema na stanju', 'Ovaj dio trenutno nije dostupan.');
+      return;
+    }
+
     setAddingID(part.partID);
     try {
       await addToCart(user.userID, part.partID, 1);
-      Alert.alert('Dodano', `"${part.name}" dodano u košaricu.`);
+      Alert.alert('Dodano', `"${part.name}" dodano u korpu.`);
     } catch (err) {
       Alert.alert('Greška', err.message);
     } finally {
@@ -44,7 +65,11 @@ export default function CatalogueScreen({ route, navigation }) {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={localStyles.row} onPress={() => navigation.navigate('PartDetail', { part: item, user })} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={localStyles.row}
+      onPress={() => navigation.navigate('PartDetail', { part: item, user })}
+      activeOpacity={0.7}
+    >
       <View style={{ flex: 1 }}>
         <Text style={styles.partName}>{item.name}</Text>
         <Text style={[styles.partStock, item.stock === 0 && { color: COLORS.error }]}>
@@ -62,22 +87,49 @@ export default function CatalogueScreen({ route, navigation }) {
     </TouchableOpacity>
   );
 
-  if (loading) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={COLORS.white} /></View>;
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.white} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.topbar}>
-        <Text style={styles.topbarTitle}>Katalog dijelova</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Cart', { user })}>
-          <Text style={styles.topbarLink}>Košarica</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
+        <Text style={styles.topbarTitle}>Katalog dijelova</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('OrderHistory', { user })}
+          >
+            <Text style={styles.headerIconText}>☰</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('Cart', { user })}
+          >
+            <Text style={styles.headerIconText}>🛒</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <TextInput style={styles.searchInput} placeholder="Pretraži dijelove..." placeholderTextColor={COLORS.muted} value={search} onChangeText={handleSearch} />
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Pretraži dijelove..."
+        placeholderTextColor={COLORS.muted}
+        value={search}
+        onChangeText={handleSearch}
+      />
+
       <FlatList
         data={filtered}
         keyExtractor={(item) => String(item.partID)}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={<Text style={styles.emptyText}>Nema rezultata za "{search}"</Text>}
       />
     </View>
@@ -85,5 +137,21 @@ export default function CatalogueScreen({ route, navigation }) {
 }
 
 const localStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.white,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
+  },
 });
