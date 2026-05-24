@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,11 @@ import {
   FlatList,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createServiceOrder, updateServiceOrder } from "../services/api";
+import {
+  createServiceOrder,
+  getSpareParts,
+  updateServiceOrder,
+} from "../services/api";
 import styles from "./styles/createServiceOrderScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
@@ -23,6 +27,12 @@ const SERVICE_TYPES = [
   { label: "Održavanje", value: "Održavanje" },
 ];
 
+const SERVICE_PRICES = {
+  Instalacija: 120,
+  Popravak: 80,
+  Održavanje: 60,
+};
+
 export default function CreateServiceOrderScreen({ route, navigation }) {
   const { user } = route?.params || {};
 
@@ -32,10 +42,13 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     name: "",
     location: "",
     date: new Date().toISOString().split("T")[0], // Current date in YYYY-MM-DD format
+    spareParts: [],
   });
   const [draftId, setDraftId] = useState(null);
   const [editServerId, setEditServerId] = useState(null);
   const [errors, setErrors] = useState({});
+  const [spareParts, setSpareParts] = useState([]);
+  const [partsLoading, setPartsLoading] = useState(false);
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
   const saveTimeout = useRef(null);
   const isEditingServerOrder = Boolean(editServerId);
@@ -57,6 +70,7 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
         name: draft.name || "",
         location: draft.location || "",
         date: draft.date || new Date().toISOString().split("T")[0],
+        spareParts: draft.spareParts || [],
       });
       // remove any stale local draft that might have the same id string
       (async () => {
@@ -71,6 +85,47 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
       })();
     }
   }, [route?.params?.draft]);
+
+  useEffect(() => {
+    const loadSpareParts = async () => {
+      try {
+        setPartsLoading(true);
+        const parts = await getSpareParts();
+        setSpareParts(parts);
+      } catch (error) {
+        console.error("Error loading spare parts:", error);
+      } finally {
+        setPartsLoading(false);
+      }
+    };
+
+    loadSpareParts();
+  }, []);
+
+  const servicePrice = SERVICE_PRICES[formData.serviceType] || 0;
+  const selectedPartRows = useMemo(
+    () =>
+      formData.spareParts
+        .map((selectedPart) => {
+          const part = spareParts.find(
+            (item) => Number(item.partID) === Number(selectedPart.partID),
+          );
+
+          if (!part) return null;
+
+          return {
+            ...part,
+            quantity: Number(selectedPart.quantity),
+          };
+        })
+        .filter(Boolean),
+    [formData.spareParts, spareParts],
+  );
+  const partsTotal = selectedPartRows.reduce(
+    (sum, part) => sum + Number(part.price) * part.quantity,
+    0,
+  );
+  const orderTotal = servicePrice + partsTotal;
 
   const validateForm = () => {
     const newErrors = {};
@@ -165,6 +220,9 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
       try {
         const orderData = {
           ...formData,
+          spareParts: formData.spareParts.filter(
+            (part) => Number(part.quantity) > 0,
+          ),
           userID: userId,
           status: 1,
         };
@@ -177,6 +235,7 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
             name: orderData.name,
             location: orderData.location,
             date: orderData.date,
+            spareParts: orderData.spareParts,
           });
         } else {
           console.log("Creating service order", orderData);
@@ -211,6 +270,50 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
+  };
+
+  const updatePartQuantity = (partID, nextQuantity) => {
+    const quantity = Math.max(0, Number(nextQuantity) || 0);
+
+    setFormData((prev) => {
+      const currentParts = prev.spareParts || [];
+      const existingPart = currentParts.find(
+        (part) => Number(part.partID) === Number(partID),
+      );
+
+      if (quantity === 0) {
+        return {
+          ...prev,
+          spareParts: currentParts.filter(
+            (part) => Number(part.partID) !== Number(partID),
+          ),
+        };
+      }
+
+      if (existingPart) {
+        return {
+          ...prev,
+          spareParts: currentParts.map((part) =>
+            Number(part.partID) === Number(partID)
+              ? { ...part, quantity }
+              : part,
+          ),
+        };
+      }
+
+      return {
+        ...prev,
+        spareParts: [...currentParts, { partID, quantity }],
+      };
+    });
+  };
+
+  const getPartQuantity = (partID) => {
+    const selectedPart = formData.spareParts.find(
+      (part) => Number(part.partID) === Number(partID),
+    );
+
+    return selectedPart ? Number(selectedPart.quantity) : 0;
   };
 
   const removeDraft = async (userId, id) => {
@@ -391,6 +494,88 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
               placeholderTextColor="#999"
             />
             {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+          </View>
+
+          <View style={styles.summaryBox}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Cijena servisa</Text>
+              <Text style={styles.summaryValue}>
+                {servicePrice.toFixed(2)} KM
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Rezervni dijelovi</Text>
+            <Text style={styles.helperText}>
+              Ostavite kolicinu 0 ako nisu koristeni rezervni dijelovi.
+            </Text>
+
+            {partsLoading ? (
+              <Text style={styles.helperText}>Ucitavanje dijelova...</Text>
+            ) : spareParts.length === 0 ? (
+              <Text style={styles.helperText}>Nema dostupnih dijelova.</Text>
+            ) : (
+              spareParts.map((part) => {
+                const quantity = getPartQuantity(part.partID);
+                const lineTotal = Number(part.price) * quantity;
+
+                return (
+                  <View key={part.partID} style={styles.partRow}>
+                    <View style={styles.partInfo}>
+                      <Text style={styles.partName}>{part.name}</Text>
+                      <Text style={styles.partMeta}>
+                        {Number(part.price).toFixed(2)} KM / kom
+                      </Text>
+                      <Text style={styles.partMeta}>Na stanju: {part.stock}</Text>
+                    </View>
+
+                    <View style={styles.quantityControls}>
+                      <TouchableOpacity
+                        style={styles.quantityButton}
+                        onPress={() =>
+                          updatePartQuantity(part.partID, quantity - 1)
+                        }
+                      >
+                        <Text style={styles.quantityButtonText}>-</Text>
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.quantityInput}
+                        value={String(quantity)}
+                        onChangeText={(value) =>
+                          updatePartQuantity(part.partID, value)
+                        }
+                        keyboardType="numeric"
+                      />
+                      <TouchableOpacity
+                        style={styles.quantityButton}
+                        onPress={() =>
+                          updatePartQuantity(part.partID, quantity + 1)
+                        }
+                      >
+                        <Text style={styles.quantityButtonText}>+</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.partTotal}>
+                        {lineTotal.toFixed(2)} KM
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          <View style={styles.totalBox}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Dijelovi</Text>
+              <Text style={styles.summaryValue}>
+                {partsTotal.toFixed(2)} KM
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>Ukupno</Text>
+              <Text style={styles.totalValue}>{orderTotal.toFixed(2)} KM</Text>
+            </View>
           </View>
 
           {/* Submit Button */}

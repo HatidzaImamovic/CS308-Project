@@ -112,6 +112,22 @@ chipRowLast: {
     marginTop: 4,
   },
 
+  cardSubtitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+    opacity: 0.9,
+  },
+
+  amountLabel: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
+    opacity: 0.8,
+  },
+
   cardAmount: {
     color: '#ffffff',
     fontSize: 16,
