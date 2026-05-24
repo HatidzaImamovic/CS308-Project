@@ -83,6 +83,7 @@ const ServiceOrderItem = ({ item, onPress }) => {
   const orderType = getTypeText(normalizeOrderType(item));
   const locationText = item.location || item.description || "Nepoznato";
   const orderDate = item.createdAt || item.date || item.updatedAt || "";
+  const totalAmount = Number(item.totalAmount || item.amount || 0);
 
   return (
     <TouchableOpacity style={styles.orderItem} onPress={onPress}>
@@ -105,6 +106,9 @@ const ServiceOrderItem = ({ item, onPress }) => {
       <Text style={styles.orderDate}>
         {new Date(orderDate).toLocaleDateString()}
       </Text>
+      {!isDraft && totalAmount > 0 && (
+        <Text style={styles.orderTotal}>{totalAmount.toFixed(2)} KM</Text>
+      )}
     </TouchableOpacity>
   );
 };

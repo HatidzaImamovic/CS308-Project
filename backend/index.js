@@ -8,6 +8,82 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const SERVICE_PRICES = {
+  installation: 120,
+  repair: 80,
+  maintenance: 60,
+};
+
+const DEFAULT_SPARE_PARTS = [
+  {
+    name: "Filter",
+    description: "Standard replacement filter",
+    price: 25,
+    stock: 50,
+  },
+  {
+    name: "Pumpa",
+    description: "Circulation pump",
+    price: 140,
+    stock: 12,
+  },
+  {
+    name: "Termostat",
+    description: "Boiler thermostat",
+    price: 45,
+    stock: 25,
+  },
+  {
+    name: "Ventil",
+    description: "Safety valve",
+    price: 35,
+    stock: 30,
+  },
+  {
+    name: "Brtva",
+    description: "Replacement gasket",
+    price: 10,
+    stock: 100,
+  },
+];
+
+const ensureDefaultSpareParts = async (connection = db) => {
+  const [[countRow]] = await connection.query(
+    "SELECT COUNT(*) AS count FROM sparepart"
+  );
+
+  if (Number(countRow.count) > 0) return;
+
+  await connection.query(
+    "INSERT INTO sparepart (name, description, price, stock) VALUES ?",
+    [
+      DEFAULT_SPARE_PARTS.map((part) => [
+        part.name,
+        part.description,
+        part.price,
+        part.stock,
+      ]),
+    ]
+  );
+};
+
+const normalizeSelectedParts = (spareParts = []) => {
+  if (!Array.isArray(spareParts)) return [];
+
+  return spareParts
+    .map((part) => ({
+      partID: Number(part.partID),
+      quantity: Number(part.quantity),
+    }))
+    .filter(
+      (part) =>
+        Number.isInteger(part.partID) &&
+        part.partID > 0 &&
+        Number.isInteger(part.quantity) &&
+        part.quantity > 0
+    );
+};
+
 // ─── TEST ─────────────────────────────────────────────────
 app.get("/test", (req, res) => {
   res.json({ message: "Backend is working!", timestamp: new Date() });
@@ -43,6 +119,7 @@ app.post("/login", async (req, res) => {
 // ─── SPARE PARTS ──────────────────────────────────────────
 app.get("/spareparts", async (req, res) => {
   try {
+    await ensureDefaultSpareParts();
     const [rows] = await db.query("SELECT * FROM sparepart");
     res.json(rows);
   } catch (err) {
@@ -54,9 +131,10 @@ app.get("/spareparts", async (req, res) => {
 app.get("/serviceorders/:userID", async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT so.*, d.serialNumber, d.ownerName AS name, d.model AS location, d.installDate AS date
+      `SELECT so.*, d.serialNumber, d.ownerName AS name, d.model AS location, d.installDate AS date, f.amount AS totalAmount
        FROM serviceorder so
        LEFT JOIN device d ON so.deviceID = d.deviceID
+       LEFT JOIN financialrecord f ON so.serviceOrderID = f.serviceOrderID
        WHERE so.userID = ?
        ORDER BY so.createdAt DESC`,
       [req.params.userID]
@@ -89,6 +167,7 @@ app.post("/serviceorders", async (req, res) => {
     date,
     userID,
     status = 1,
+    spareParts = [],
   } = req.body;
 
   if (!serviceType || !serialNumber || !name || !location || !date || !userID) {
@@ -120,7 +199,11 @@ app.post("/serviceorders", async (req, res) => {
       .json({ message: "Nevažeći status. Dozvoljeni statusi: 0, 1" });
   }
 
+  const selectedParts = normalizeSelectedParts(spareParts);
+
   try {
+    await ensureDefaultSpareParts();
+
     const [deviceRows] = await db.query(
       "SELECT deviceID FROM device WHERE serialNumber = ?",
       [serialNumber]
@@ -144,11 +227,63 @@ app.post("/serviceorders", async (req, res) => {
       deviceID = deviceInsert.insertId;
     }
 
-    const description = `Serial: ${serialNumber}; Ime: ${name}; Lokacija: ${location}`;
+    const servicePrice = SERVICE_PRICES[typeValue] || 0;
+    let partsTotal = 0;
+    const partDescriptions = [];
+
+    if (selectedParts.length > 0) {
+      const [parts] = await db.query(
+        `SELECT partID, name, price, stock
+         FROM sparepart
+         WHERE partID IN (?)`,
+        [selectedParts.map((part) => part.partID)]
+      );
+
+      const partsById = new Map(parts.map((part) => [Number(part.partID), part]));
+
+      for (const selectedPart of selectedParts) {
+        const part = partsById.get(selectedPart.partID);
+
+        if (!part) {
+          return res
+            .status(400)
+            .json({ message: "Odabrani rezervni dio nije pronađen" });
+        }
+
+        if (Number(part.stock) < selectedPart.quantity) {
+          return res.status(400).json({
+            message: `Nema dovoljno zaliha za dio "${part.name}"`,
+          });
+        }
+
+        const partTotal = Number(part.price) * selectedPart.quantity;
+        partsTotal += partTotal;
+        partDescriptions.push(
+          `${part.name} x${selectedPart.quantity} (${partTotal.toFixed(2)} KM)`
+        );
+      }
+    }
+
+    const totalAmount = servicePrice + partsTotal;
+    const sparePartsDescription =
+      partDescriptions.length > 0 ? partDescriptions.join(", ") : "Nema";
+    const description = `Serial: ${serialNumber}; Ime: ${name}; Lokacija: ${location}; Servis: ${servicePrice.toFixed(2)} KM; Rezervni dijelovi: ${sparePartsDescription}; Ukupno: ${totalAmount.toFixed(2)} KM`;
 
     const [result] = await db.query(
       "INSERT INTO serviceorder (type, status, deviceID, userID, createdAt, description) VALUES (?, ?, ?, ?, NOW(), ?)",
       [typeValue, statusValue, deviceID, userID, description]
+    );
+
+    for (const selectedPart of selectedParts) {
+      await db.query("UPDATE sparepart SET stock = stock - ? WHERE partID = ?", [
+        selectedPart.quantity,
+        selectedPart.partID,
+      ]);
+    }
+
+    await db.query(
+      "INSERT INTO financialrecord (serviceOrderID, amount, paymentStatus, createdAt) VALUES (?, ?, ?, NOW())",
+      [result.insertId, totalAmount, 0]
     );
 
     res.status(201).json({
@@ -160,6 +295,9 @@ app.post("/serviceorders", async (req, res) => {
       userID,
       createdAt: new Date(),
       description,
+      servicePrice,
+      partsTotal,
+      totalAmount,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -348,15 +486,31 @@ app.get("/financial/:userID", async (req, res) => {
     const userID = req.params.userID;
 
     const query = `
-      SELECT f.*
-      FROM financialrecord f
-      JOIN serviceorder s ON f.serviceOrderID = s.serviceOrderID
+      SELECT
+        COALESCE(f.recordID, s.serviceOrderID) AS recordID,
+        s.serviceOrderID,
+        f.amount AS amount,
+        COALESCE(f.paymentStatus, 0) AS paymentStatus,
+        COALESCE(f.createdAt, s.createdAt) AS createdAt,
+        s.type AS serviceType,
+        s.description
+      FROM serviceorder s
+      LEFT JOIN financialrecord f ON f.serviceOrderID = s.serviceOrderID
       WHERE s.userID = ?
+      ORDER BY COALESCE(f.createdAt, s.createdAt) DESC
     `;
 
     const [results] = await db.query(query, [userID]);
 
-    res.json(results);
+    const normalizedResults = results.map((record) => ({
+      ...record,
+      amount:
+        record.amount === null || record.amount === undefined
+          ? SERVICE_PRICES[record.serviceType] || 0
+          : record.amount,
+    }));
+
+    res.json(normalizedResults);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }

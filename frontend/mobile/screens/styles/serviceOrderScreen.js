@@ -201,6 +201,12 @@ export default StyleSheet.create({
     fontSize: 12,
     color: "#bec5d5",
   },
+  orderTotal: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 8,
+  },
   addButton: {
     position: "absolute",
     bottom: 28,

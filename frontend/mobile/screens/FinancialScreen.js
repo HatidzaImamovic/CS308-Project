@@ -30,6 +30,12 @@ const FILTER_OPTIONS = [
   { label: 'Na čekanju', value: 0 },
 ];
 
+const SERVICE_TYPE_LABELS = {
+  installation: 'Instalacija',
+  repair: 'Popravak',
+  maintenance: 'Odrzavanje',
+};
+
 export default function FinancialScreen({ route, navigation }) {
   const { user } = route.params;
   const [records, setRecords] = useState([]);
@@ -69,6 +75,9 @@ export default function FinancialScreen({ route, navigation }) {
   const getStatusStyle = (status) =>
     status === 1 ? styles.statusPaid : styles.statusPending;
 
+  const getServiceTypeLabel = (type) =>
+    SERVICE_TYPE_LABELS[type] || type || 'Nepoznat servis';
+
   const processedRecords = records
     .filter((r) => {
       if (activeFilter.value === null) return true;
@@ -87,13 +96,19 @@ export default function FinancialScreen({ route, navigation }) {
     <TouchableOpacity style={styles.card} onPress={() => openDetail(item)}>
       <View style={styles.cardLeft}>
         <Text style={styles.cardTitle}>
-          {item.serviceOrderID ? `Nalog #${item.serviceOrderID}` : 'Bez naloga'}
+          {item.serviceOrderID
+            ? `Servisni nalog #${item.serviceOrderID}`
+            : 'Bez naloga'}
+        </Text>
+        <Text style={styles.cardSubtitle}>
+          {getServiceTypeLabel(item.serviceType)}
         </Text>
         <Text style={styles.cardDate}>
           {item.createdAt ? new Date(item.createdAt).toLocaleDateString('bs-BA') : '—'}
         </Text>
       </View>
       <View style={styles.cardRight}>
+        <Text style={styles.amountLabel}>Ukupno</Text>
         <Text style={styles.cardAmount}>
           {parseFloat(item.amount || 0).toFixed(2)} KM
         </Text>
@@ -207,7 +222,11 @@ export default function FinancialScreen({ route, navigation }) {
                   value={selectedRecord.serviceOrderID ? `#${selectedRecord.serviceOrderID}` : '—'}
                 />
                 <DetailRow
-                  label="Iznos"
+                  label="Tip servisa"
+                  value={getServiceTypeLabel(selectedRecord.serviceType)}
+                />
+                <DetailRow
+                  label="Ukupno"
                   value={`${parseFloat(selectedRecord.amount || 0).toFixed(2)} KM`}
                 />
                 <DetailRow
