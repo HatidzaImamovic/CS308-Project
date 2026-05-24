@@ -127,22 +127,6 @@ export default StyleSheet.create({
     fontWeight: "800",
     marginTop: 8,
   },
-  statusBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusPaid: {
-    backgroundColor: "rgba(40, 167, 69, 0.2)",
-  },
-  statusPending: {
-    backgroundColor: "rgba(255, 193, 7, 0.2)",
-  },
-  statusText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
   centered: {
     flex: 1,
     justifyContent: "center",

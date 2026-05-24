@@ -16,13 +16,13 @@ const SORT_OPTIONS = [
   { label: "Najnovije", field: "createdAt", direction: "desc" },
   { label: "Najstarije", field: "createdAt", direction: "asc" },
   { label: "Najmanji iznos", field: "amount", direction: "asc" },
-  { label: "Najveći iznos", field: "amount", direction: "desc" },
+  { label: "Najveci iznos", field: "amount", direction: "desc" },
 ];
 
 const SERVICE_TYPE_LABELS = {
   installation: "Instalacija",
   repair: "Popravak",
-  maintenance: "Održavanje",
+  maintenance: "Odrzavanje",
 };
 
 export default function FinancialScreen({ route, navigation }) {
@@ -46,7 +46,7 @@ export default function FinancialScreen({ route, navigation }) {
       setRecords(data);
     } catch (err) {
       console.log("ERROR:", err);
-      setError("Finansijski podaci se ne mogu učitati");
+      setError("Finansijski podaci se ne mogu ucitati");
     } finally {
       setLoading(false);
     }
@@ -55,18 +55,17 @@ export default function FinancialScreen({ route, navigation }) {
   const getServiceTypeLabel = (type) =>
     SERVICE_TYPE_LABELS[type] || type || "Nepoznat servis";
 
-  const processedRecords = records
-    .sort((a, b) => {
-      const { field, direction } = activeSort;
-      const valA =
-        field === "amount" ? parseFloat(a[field]) : new Date(a[field]);
-      const valB =
-        field === "amount" ? parseFloat(b[field]) : new Date(b[field]);
+  const processedRecords = records.sort((a, b) => {
+    const { field, direction } = activeSort;
+    const valA =
+      field === "amount" ? parseFloat(a[field]) : new Date(a[field]);
+    const valB =
+      field === "amount" ? parseFloat(b[field]) : new Date(b[field]);
 
-      if (valA < valB) return direction === "asc" ? -1 : 1;
-      if (valA > valB) return direction === "asc" ? 1 : -1;
-      return 0;
-    });
+    if (valA < valB) return direction === "asc" ? -1 : 1;
+    if (valA > valB) return direction === "asc" ? 1 : -1;
+    return 0;
+  });
 
   const openDetail = (record) => {
     setSelectedRecord(record);
@@ -77,9 +76,7 @@ export default function FinancialScreen({ route, navigation }) {
     <TouchableOpacity style={styles.card} onPress={() => openDetail(item)}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>
-          {item.serviceOrderID
-            ? `Servisni nalog #${item.serviceOrderID}`
-            : "Bez naloga"}
+          {item.serviceOrderID ? `Servisni nalog #${item.serviceOrderID}` : "Bez naloga"}
         </Text>
       </View>
 
@@ -101,7 +98,7 @@ export default function FinancialScreen({ route, navigation }) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#1ca8b2" />
-        <Text style={styles.loadingText}>Učitavanje...</Text>
+        <Text style={styles.loadingText}>Ucitavanje...</Text>
       </View>
     );
   }
@@ -111,7 +108,7 @@ export default function FinancialScreen({ route, navigation }) {
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchRecords}>
-          <Text style={styles.retryText}>Pokušaj ponovo</Text>
+          <Text style={styles.retryText}>Pokusaj ponovo</Text>
         </TouchableOpacity>
       </View>
     );
@@ -203,9 +200,7 @@ export default function FinancialScreen({ route, navigation }) {
                 />
                 <DetailRow
                   label="Ukupno"
-                  value={`${parseFloat(selectedRecord.amount || 0).toFixed(
-                    2,
-                  )} KM`}
+                  value={`${parseFloat(selectedRecord.amount || 0).toFixed(2)} KM`}
                 />
                 <DetailRow
                   label="Datum"

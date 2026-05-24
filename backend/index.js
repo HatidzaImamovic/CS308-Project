@@ -498,6 +498,7 @@ app.get("/financial/:userID", async (req, res) => {
       FROM serviceorder s
       LEFT JOIN financialrecord f ON f.serviceOrderID = s.serviceOrderID
       WHERE s.userID = ?
+      ORDER BY COALESCE(f.createdAt, s.createdAt) DESC
     `;
 
     const [serviceResults] = await db.query(query, [userID]);
