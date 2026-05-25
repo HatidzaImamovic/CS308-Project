@@ -196,3 +196,77 @@ export const cancelOrder = async (orderID) => {
 
   return data;
 };
+
+// ─── USERS (Manager) ────────────────────────────────────
+
+export const getUsers = async () => {
+  const res = await fetch(`${API_URL}/users`);
+  if (!res.ok) throw new Error("Nije moguće dohvatiti korisnike.");
+  return res.json();
+};
+
+export const updateUser = async (userId, payload) => {
+  const res = await fetch(`${API_URL}/users/${userId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || "Ažuriranje nije uspjelo.");
+  return data;
+};
+
+export const deleteUser = async (userId) => {
+  const res = await fetch(`${API_URL}/users/${userId}`, {
+    method: "DELETE",
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || "Brisanje nije uspjelo.");
+  return data;
+};
+
+export const createUser = async (payload) => {
+  const res = await fetch(`${API_URL}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || "Kreiranje nije uspjelo.");
+  return data;
+};
+
+export const getAllServiceOrders = async () => {
+  const res = await fetch(`${API_URL}/serviceorders`);
+  if (!res.ok) throw new Error("Nije moguće dohvatiti servisne naloge.");
+  return res.json();
+};
+
+export const createPart = async (payload) => {
+  const res = await fetch(`${API_URL}/spareparts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || "Kreiranje nije uspjelo.");
+  return data;
+};
+
+export const updatePart = async (partID, payload) => {
+  const res = await fetch(`${API_URL}/spareparts/${partID}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || "Ažuriranje nije uspjelo.");
+  return data;
+};
+
+export const deletePart = async (partID) => {
+  const res = await fetch(`${API_URL}/spareparts/${partID}`, { method: "DELETE" });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || "Brisanje nije uspjelo.");
+  return data;
+};

@@ -11,6 +11,10 @@ import PartDetailScreen from './screens/shop/PartDetailScreen';
 import CartScreen from './screens/shop/CartScreen';
 import OrderConfirmScreen from './screens/shop/OrderConfirmScreen';
 import OrderHistoryScreen from './screens/shop/OrderHistoryScreen';
+import ManagerHome from './screens/ManagerHome';
+import createUserScreen from './screens/createUserScreen';
+import AllServiceOrdersScreen from './screens/AllServiceOrdersScreen';
+import InventoryScreen from './screens/InventoryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,6 +24,7 @@ export default function App() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="ManagerHome" component={ManagerHome} />
       <Stack.Screen name="ServiceOrder" component={ServiceOrderScreen} />
       <Stack.Screen
         name="CreateServiceOrder"
@@ -31,7 +36,10 @@ export default function App() {
       <Stack.Screen name="PartDetail" component={PartDetailScreen} />
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="OrderConfirm" component={OrderConfirmScreen} />
-      <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />     
+      <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />    
+      <Stack.Screen name="CreateUser" component={createUserScreen} /> 
+      <Stack.Screen name="AllServiceOrders" component={AllServiceOrdersScreen} />
+      <Stack.Screen name="Inventory" component={InventoryScreen} />
 
       </Stack.Navigator>
     </NavigationContainer>

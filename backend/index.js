@@ -807,3 +807,207 @@ app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
     `Server running on http://0.0.0.0:${process.env.PORT || 3000}`
   );
 });
+
+// ─── USERS (Manager) ──────────────────────────────────────
+
+app.get("/users", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT userID, fName, lName, username, email, role FROM user ORDER BY userID ASC"
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  const { fName, lName, username, email, role } = req.body;
+
+  if (role && !["menadžer", "serviser", "skladištar"].includes(role)) {
+    return res.status(400).json({ message: "Nevažeća uloga." });
+  }
+
+  try {
+    const [[existing]] = await db.query("SELECT userID FROM user WHERE userID = ?", [id]);
+    if (!existing) {
+      return res.status(404).json({ message: "Korisnik nije pronađen." });
+    }
+
+    if (username || email) {
+      const [conflict] = await db.query(
+        "SELECT userID FROM user WHERE (username = ? OR email = ?) AND userID != ?",
+        [username || "", email || "", id]
+      );
+      if (conflict.length > 0) {
+        return res.status(409).json({ message: "Korisničko ime ili email već postoji." });
+      }
+    }
+
+    const updates = [];
+    const params  = [];
+
+    if (fName)    { updates.push("fName = ?");    params.push(fName.trim()); }
+    if (lName)    { updates.push("lName = ?");    params.push(lName.trim()); }
+    if (username) { updates.push("username = ?"); params.push(username.trim()); }
+    if (email)    { updates.push("email = ?");    params.push(email.trim().toLowerCase()); }
+    if (role)     { updates.push("role = ?");     params.push(role); }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: "Nema podataka za ažuriranje." });
+    }
+
+    params.push(id);
+    await db.query(`UPDATE user SET ${updates.join(", ")} WHERE userID = ? LIMIT 1`, params);
+
+    const [[updated]] = await db.query(
+      "SELECT userID, fName, lName, username, email, role FROM user WHERE userID = ?",
+      [id]
+    );
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[existing]] = await db.query("SELECT userID FROM user WHERE userID = ?", [id]);
+    if (!existing) {
+      return res.status(404).json({ message: "Korisnik nije pronađen." });
+    }
+
+    // Delete related records first to avoid foreign key constraint errors
+    await db.query("DELETE FROM cartitem WHERE cartID IN (SELECT cartID FROM cart WHERE userID = ?)", [id]);
+    await db.query("DELETE FROM cart WHERE userID = ?", [id]);
+    await db.query("DELETE FROM orderitem WHERE sparePartsOrderID IN (SELECT sparePartsOrderID FROM sparepartsorder WHERE userID = ?)", [id]);
+    await db.query("DELETE FROM sparepartsorder WHERE userID = ?", [id]);
+    await db.query("DELETE FROM financialrecord WHERE serviceOrderID IN (SELECT serviceOrderID FROM serviceorder WHERE userID = ?)", [id]);
+    await db.query("DELETE FROM serviceorder WHERE userID = ?", [id]);
+
+    await db.query("DELETE FROM user WHERE userID = ? LIMIT 1", [id]);
+    res.json({ message: "Korisnik je obrisan." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/users", async (req, res) => {
+  const { fName, lName, username, email, passwordHash, role } = req.body;
+
+  if (!fName || !lName || !username || !email || !passwordHash || !role) {
+    return res.status(400).json({ message: "Sva polja su obavezna." });
+  }
+
+  if (!["menadžer", "serviser", "skladištar"].includes(role)) {
+    return res.status(400).json({ message: "Nevažeća uloga." });
+  }
+
+  try {
+    const [existing] = await db.query(
+      "SELECT userID FROM user WHERE username = ? OR email = ?",
+      [username, email]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ message: "Korisničko ime ili email već postoji." });
+    }
+
+    const [result] = await db.query(
+      "INSERT INTO user (fName, lName, username, email, password, role) VALUES (?, ?, ?, ?, ?, ?)",
+      [fName.trim(), lName.trim(), username.trim(), email.trim().toLowerCase(), passwordHash, role]
+    );
+
+    res.status(201).json({
+      userID:   result.insertId,
+      fName:    fName.trim(),
+      lName:    lName.trim(),
+      username: username.trim(),
+      email:    email.trim().toLowerCase(),
+      role,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/serviceorders", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT so.*, d.serialNumber, d.ownerName AS name, d.model AS location, 
+       d.installDate AS date, f.amount AS totalAmount,
+       u.fName, u.lName, u.username
+       FROM serviceorder so
+       LEFT JOIN device d ON so.deviceID = d.deviceID
+       LEFT JOIN financialrecord f ON so.serviceOrderID = f.serviceOrderID
+       LEFT JOIN user u ON so.userID = u.userID
+       ORDER BY so.createdAt DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST new spare part
+app.post("/spareparts", async (req, res) => {
+  const { name, description, price, stock } = req.body;
+  if (!name || price === undefined || stock === undefined) {
+    return res.status(400).json({ message: "Naziv, cijena i zaliha su obavezni." });
+  }
+  try {
+    const [result] = await db.query(
+      "INSERT INTO sparepart (name, description, price, stock) VALUES (?, ?, ?, ?)",
+      [name.trim(), description?.trim() || "", Number(price), Number(stock)]
+    );
+    res.status(201).json({ partID: result.insertId, name: name.trim(), description: description?.trim() || "", price: Number(price), stock: Number(stock) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT update spare part
+app.put("/spareparts/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, description, price, stock } = req.body;
+  try {
+    const [[existing]] = await db.query("SELECT partID FROM sparepart WHERE partID = ?", [id]);
+    if (!existing) return res.status(404).json({ message: "Dio nije pronađen." });
+
+    const updates = [];
+    const params  = [];
+    if (name        !== undefined) { updates.push("name = ?");        params.push(name.trim()); }
+    if (description !== undefined) { updates.push("description = ?"); params.push(description.trim()); }
+    if (price       !== undefined) { updates.push("price = ?");       params.push(Number(price)); }
+    if (stock       !== undefined) { updates.push("stock = ?");       params.push(Number(stock)); }
+
+    if (updates.length === 0) return res.status(400).json({ message: "Nema podataka za ažuriranje." });
+
+    params.push(id);
+    await db.query(`UPDATE sparepart SET ${updates.join(", ")} WHERE partID = ? LIMIT 1`, params);
+    const [[updated]] = await db.query("SELECT * FROM sparepart WHERE partID = ?", [id]);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/spareparts/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[existing]] = await db.query("SELECT partID FROM sparepart WHERE partID = ?", [id]);
+    if (!existing) return res.status(404).json({ message: "Dio nije pronađen." });
+
+    // Remove from carts first
+    await db.query("DELETE FROM cartitem WHERE partID = ?", [id]);
+
+    // Remove from order items
+    await db.query("DELETE FROM orderitem WHERE partID = ?", [id]);
+
+    await db.query("DELETE FROM sparepart WHERE partID = ? LIMIT 1", [id]);
+    res.json({ message: "Dio je obrisan." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
