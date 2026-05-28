@@ -16,26 +16,34 @@ export default function LoginScreen({ navigation }) {
         setPassword("");
         setError("");
       };
-    }, []),
+    }, [])
   );
 
   const handleLogin = async () => {
     try {
       const response = await fetch(`${config.API_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
       const data = await response.json();
 
       if (response.ok) {
+        const role = data.user?.role?.toString().toLowerCase();
         const isManager =
-          data.user?.role?.toString().toLowerCase() === "manager" ||
+          role === "manager" ||
+          role === "menadžer" ||
+          role === "menadÅ¾er" ||
           /^mn/i.test(data.user?.code || data.user?.username || "");
+        const isWarehouse =
+          role === "warehouse" ||
+          role === "skladištar" ||
+          role === "skladiÅ¡tar";
 
-        navigation.navigate(isManager ? "ManagerHome" : "Home", {
-          user: data.user,
-        });
+        navigation.navigate(
+          isManager ? "ManagerHome" : isWarehouse ? "WarehouseHome" : "Home",
+          { user: data.user }
+        );
       } else {
         setError(data.message || "Pogrešni podaci za prijavu");
       }
@@ -70,4 +78,3 @@ export default function LoginScreen({ navigation }) {
     </View>
   );
 }
-("#1ca8b2");

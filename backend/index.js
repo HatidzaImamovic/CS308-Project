@@ -84,6 +84,15 @@ const normalizeSelectedParts = (spareParts = []) => {
     );
 };
 
+const getNextUserOrderNumber = async (connection, tableName, userID) => {
+  const [[row]] = await connection.query(
+    `SELECT COALESCE(MAX(orderNumber), 0) + 1 AS nextOrderNumber FROM ${tableName} WHERE userID = ?`,
+    [userID]
+  );
+
+  return Number(row.nextOrderNumber) || 1;
+};
+
 // ─── TEST ─────────────────────────────────────────────────
 app.get("/test", (req, res) => {
   res.json({ message: "Backend is working!", timestamp: new Date() });
@@ -269,9 +278,11 @@ app.post("/serviceorders", async (req, res) => {
       partDescriptions.length > 0 ? partDescriptions.join(", ") : "Nema";
     const description = `Serial: ${serialNumber}; Ime: ${name}; Lokacija: ${location}; Servis: ${servicePrice.toFixed(2)} KM; Rezervni dijelovi: ${sparePartsDescription}; Ukupno: ${totalAmount.toFixed(2)} KM`;
 
+    const orderNumber = await getNextUserOrderNumber(db, "serviceorder", userID);
+
     const [result] = await db.query(
-      "INSERT INTO serviceorder (type, status, deviceID, userID, createdAt, description) VALUES (?, ?, ?, ?, NOW(), ?)",
-      [typeValue, statusValue, deviceID, userID, description]
+      "INSERT INTO serviceorder (type, status, deviceID, userID, orderNumber, createdAt, description) VALUES (?, ?, ?, ?, ?, NOW(), ?)",
+      [typeValue, statusValue, deviceID, userID, orderNumber, description]
     );
 
     for (const selectedPart of selectedParts) {
@@ -289,6 +300,7 @@ app.post("/serviceorders", async (req, res) => {
     res.status(201).json({
       id: result.insertId,
       serviceOrderID: result.insertId,
+      orderNumber,
       type: typeValue,
       status: statusValue,
       deviceID,
@@ -447,6 +459,10 @@ app.delete("/serviceorders/:id", async (req, res) => {
       return res.status(404).json({ message: "Servisni nalog nije pronađen" });
     }
 
+    await db.query("DELETE FROM financialrecord WHERE serviceOrderID = ?", [
+      existing.serviceOrderID,
+    ]);
+
     const [result] = await db.query(
       "DELETE FROM serviceorder WHERE serviceOrderID = ? LIMIT 1",
       [existing.serviceOrderID]
@@ -489,6 +505,7 @@ app.get("/financial/:userID", async (req, res) => {
       SELECT
         COALESCE(f.recordID, s.serviceOrderID) AS recordID,
         s.serviceOrderID,
+        s.orderNumber AS serviceOrderNumber,
         NULL AS sparePartsOrderID,
         f.amount AS amount,
         1 AS paymentStatus,
@@ -688,9 +705,15 @@ app.post("/api/orders", async (req, res) => {
       }
     }
 
+    const orderNumber = await getNextUserOrderNumber(
+      db,
+      "sparepartsorder",
+      userID
+    );
+
     const [orderResult] = await db.query(
-      "INSERT INTO sparepartsorder (userID, status, submittedAt) VALUES (?, ?, NOW())",
-      [userID, "pending"]
+      "INSERT INTO sparepartsorder (userID, orderNumber, status, submittedAt) VALUES (?, ?, ?, NOW())",
+      [userID, orderNumber, "pending"]
     );
 
     const sparePartsOrderID = orderResult.insertId;
@@ -712,6 +735,7 @@ app.post("/api/orders", async (req, res) => {
     res.status(201).json({
       message: "Order submitted",
       orderID: sparePartsOrderID,
+      orderNumber,
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to submit order" });
@@ -721,7 +745,7 @@ app.post("/api/orders", async (req, res) => {
 app.get("/api/orders/user/:userID", async (req, res) => {
   try {
     const [orders] = await db.query(
-      "SELECT sparePartsOrderID, status, submittedAt FROM sparepartsorder WHERE userID = ? AND status <> ? ORDER BY submittedAt DESC",
+      "SELECT sparePartsOrderID, orderNumber, status, submittedAt FROM sparepartsorder WHERE userID = ? AND status <> ? ORDER BY submittedAt DESC",
       [req.params.userID, "cancelled"]
     );
 
@@ -755,6 +779,97 @@ app.get("/api/orders/:orderID", async (req, res) => {
     res.json({ ...orders[0], items, total });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch order" });
+  }
+});
+
+app.get("/api/warehouse/orders", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT
+         spo.sparePartsOrderID,
+         spo.orderNumber,
+         spo.userID,
+         spo.status,
+         spo.submittedAt,
+         spo.fulfilledAt,
+         u.fName,
+         u.lName,
+         u.username,
+         oi.itemID,
+         oi.partID,
+         oi.quantity,
+         oi.unitPrice,
+         sp.name AS partName
+       FROM sparepartsorder spo
+       JOIN user u ON u.userID = spo.userID
+       LEFT JOIN orderitem oi ON oi.sparePartsOrderID = spo.sparePartsOrderID
+       LEFT JOIN sparepart sp ON sp.partID = oi.partID
+       WHERE spo.status <> ?
+       ORDER BY spo.submittedAt DESC, spo.sparePartsOrderID DESC`,
+      ["cancelled"]
+    );
+
+    const ordersById = new Map();
+
+    for (const row of rows) {
+      if (!ordersById.has(row.sparePartsOrderID)) {
+        ordersById.set(row.sparePartsOrderID, {
+          sparePartsOrderID: row.sparePartsOrderID,
+          orderNumber: row.orderNumber,
+          userID: row.userID,
+          status: row.status,
+          submittedAt: row.submittedAt,
+          fulfilledAt: row.fulfilledAt,
+          technician: {
+            userID: row.userID,
+            fName: row.fName,
+            lName: row.lName,
+            username: row.username,
+          },
+          items: [],
+        });
+      }
+
+      if (row.itemID) {
+        ordersById.get(row.sparePartsOrderID).items.push({
+          itemID: row.itemID,
+          partID: row.partID,
+          name: row.partName,
+          quantity: row.quantity,
+          unitPrice: row.unitPrice,
+        });
+      }
+    }
+
+    res.json(Array.from(ordersById.values()));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch warehouse orders" });
+  }
+});
+
+app.patch("/api/warehouse/orders/:orderID/fulfill", async (req, res) => {
+  try {
+    const [orders] = await db.query(
+      "SELECT sparePartsOrderID, status FROM sparepartsorder WHERE sparePartsOrderID = ?",
+      [req.params.orderID]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (orders[0].status === "completed") {
+      return res.json({ message: "Order already fulfilled", status: "completed" });
+    }
+
+    await db.query(
+      "UPDATE sparepartsorder SET status = ?, fulfilledAt = NOW() WHERE sparePartsOrderID = ?",
+      ["completed", req.params.orderID]
+    );
+
+    res.json({ message: "Order fulfilled", status: "completed" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fulfill order" });
   }
 });
 
@@ -895,9 +1010,9 @@ app.delete("/users/:id", async (req, res) => {
 });
 
 app.post("/users", async (req, res) => {
-  const { fName, lName, username, email, passwordHash, role } = req.body;
+  const { fName, lName, username, email, password, passwordHash, role } = req.body;
 
-  if (!fName || !lName || !username || !email || !passwordHash || !role) {
+  if (!fName || !lName || !username || !email || !(password || passwordHash) || !role) {
     return res.status(400).json({ message: "Sva polja su obavezna." });
   }
 
@@ -914,9 +1029,11 @@ app.post("/users", async (req, res) => {
       return res.status(409).json({ message: "Korisničko ime ili email već postoji." });
     }
 
+    const storedPassword = passwordHash || (await bcrypt.hash(password, 10));
+
     const [result] = await db.query(
       "INSERT INTO user (fName, lName, username, email, password, role) VALUES (?, ?, ?, ?, ?, ?)",
-      [fName.trim(), lName.trim(), username.trim(), email.trim().toLowerCase(), passwordHash, role]
+      [fName.trim(), lName.trim(), username.trim(), email.trim().toLowerCase(), storedPassword, role]
     );
 
     res.status(201).json({

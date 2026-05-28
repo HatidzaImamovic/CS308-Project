@@ -14,7 +14,6 @@ import {
   Platform,
   Image,
 } from "react-native";
-import bcrypt from "react-native-bcrypt";
 import { createUser } from "../services/api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -120,15 +119,12 @@ export default function CreateUserScreen({ route, navigation }) {
 
     setSaving(true);
     try {
-      const salt         = bcrypt.genSaltSync(10);
-      const passwordHash = bcrypt.hashSync(form.password, salt);
-
       const payload = {
         fName:        form.fName.trim(),
         lName:        form.lName.trim(),
         username:     form.username.trim(),
         email:        form.email.trim().toLowerCase(),
-        passwordHash,
+        password:     form.password,
         role:         form.role,
       };
 

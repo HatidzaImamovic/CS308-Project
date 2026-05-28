@@ -15,6 +15,7 @@ import ManagerHome from './screens/ManagerHome';
 import createUserScreen from './screens/createUserScreen';
 import AllServiceOrdersScreen from './screens/AllServiceOrdersScreen';
 import InventoryScreen from './screens/InventoryScreen';
+import WarehouseHome from './screens/WarehouseHome';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +26,7 @@ export default function App() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ManagerHome" component={ManagerHome} />
+        <Stack.Screen name="WarehouseHome" component={WarehouseHome} />
       <Stack.Screen name="ServiceOrder" component={ServiceOrderScreen} />
       <Stack.Screen
         name="CreateServiceOrder"

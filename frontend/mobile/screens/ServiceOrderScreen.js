@@ -39,6 +39,13 @@ const SORT_OPTIONS = [
   { label: "Najstarije", value: "oldest" },
 ];
 
+const getDisplayOrderNumber = (order) =>
+  order.orderNumber ||
+  order.serviceOrderNumber ||
+  order.serviceOrderID ||
+  order.id ||
+  "";
+
 const getTypeText = (type) => {
   switch (type) {
     case "installation":
@@ -88,7 +95,7 @@ const ServiceOrderItem = ({ item, onPress }) => {
   return (
     <TouchableOpacity style={styles.orderItem} onPress={onPress}>
       <View style={styles.orderHeader}>
-        <Text style={styles.orderId}>#{item.serviceOrderID || item.id}</Text>
+        <Text style={styles.orderId}>#{getDisplayOrderNumber(item)}</Text>
         <Text
           style={[
             styles.orderStatus,
@@ -211,7 +218,7 @@ export default function ServiceOrderScreen({ route, navigation }) {
     };
 
     if (isDraft) {
-      Alert.alert(`Nalog #${orderId}`, "Odaberite akciju", [
+      Alert.alert(`Nalog #${getDisplayOrderNumber(order)}`, "Odaberite akciju", [
         { text: "Odustani", style: "cancel" },
         {
           text: "Obriši",
@@ -247,7 +254,7 @@ export default function ServiceOrderScreen({ route, navigation }) {
     }
 
     // server order actions
-    Alert.alert(`Nalog #${orderId}`, "Odaberite akciju", [
+    Alert.alert(`Nalog #${getDisplayOrderNumber(order)}`, "Odaberite akciju", [
       { text: "Odustani", style: "cancel" },
       {
         text: "Obriši",

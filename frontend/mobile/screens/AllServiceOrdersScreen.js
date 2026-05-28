@@ -50,6 +50,9 @@ const formatDate = (val) => {
   return isNaN(d.getTime()) ? "--" : d.toLocaleDateString();
 };
 
+const getDisplayOrderNumber = (order) =>
+  order.orderNumber || order.serviceOrderID;
+
 // ─── Order card ───────────────────────────────────────────────────────────────
 const OrderCard = ({ item }) => {
   const typeColor  = TYPE_COLORS[item.type] || "#7aa7b8";
@@ -66,7 +69,7 @@ const OrderCard = ({ item }) => {
     <View style={styles.orderCard}>
       {/* Top row: ID + status */}
       <View style={styles.orderTopRow}>
-        <Text style={styles.orderId}>#{item.serviceOrderID}</Text>
+        <Text style={styles.orderId}>#{getDisplayOrderNumber(item)}</Text>
         <View style={[styles.statusBadge, { backgroundColor: statusColor + "25" }]}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>

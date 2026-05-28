@@ -16,6 +16,13 @@ import styles from "./styles/homeScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
 
+const getDisplayOrderNumber = (order) =>
+  order.orderNumber ||
+  order.serviceOrderNumber ||
+  order.serviceOrderID ||
+  order.id ||
+  "";
+
 const normalizeUserName = (user) => {
   const firstName =
     user?.fName || user?.fname || user?.firstName || user?.first_name;
@@ -160,7 +167,7 @@ export default function HomeScreen({ route, navigation }) {
     const dateValue = order.createdAt || order.date || order.updatedAt;
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime()))
-      return `#${order.serviceOrderID || order.id || ""}`;
+      return `#${getDisplayOrderNumber(order)}`;
 
     const now = new Date();
     const today = now.toDateString();
@@ -179,7 +186,7 @@ export default function HomeScreen({ route, navigation }) {
       minute: "2-digit",
     });
 
-    return `#${order.serviceOrderID || order.id || ""} · ${dayLabel}${time ? `, ${time}` : ""}`;
+    return `#${getDisplayOrderNumber(order)} · ${dayLabel}${time ? `, ${time}` : ""}`;
   };
 
   const getOrderStatusText = (order) =>
@@ -196,7 +203,7 @@ export default function HomeScreen({ route, navigation }) {
     }
 
     Alert.alert(
-      `Nalog #${order.serviceOrderID || order.id}`,
+      `Nalog #${getDisplayOrderNumber(order)}`,
       `Tip: ${getOrderTitle(order)}\nDatum: ${formatOrderDate(order)}\nStatus: ${getOrderStatusText(order)}\n${order.description ? `\nOpis: ${order.description}` : ""}`,
       [{ text: "OK" }],
     );

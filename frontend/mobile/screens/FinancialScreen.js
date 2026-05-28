@@ -25,6 +25,9 @@ const SERVICE_TYPE_LABELS = {
   maintenance: "Odrzavanje",
 };
 
+const getDisplayOrderNumber = (record) =>
+  record.serviceOrderNumber || record.orderNumber || record.serviceOrderID;
+
 export default function FinancialScreen({ route, navigation }) {
   const { user } = route.params;
   const [records, setRecords] = useState([]);
@@ -76,7 +79,7 @@ export default function FinancialScreen({ route, navigation }) {
     <TouchableOpacity style={styles.card} onPress={() => openDetail(item)}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>
-          {item.serviceOrderID ? `Servisni nalog #${item.serviceOrderID}` : "Bez naloga"}
+          {item.serviceOrderID ? `Servisni nalog #${getDisplayOrderNumber(item)}` : "Bez naloga"}
         </Text>
       </View>
 
@@ -190,7 +193,7 @@ export default function FinancialScreen({ route, navigation }) {
                   label="Nalog br."
                   value={
                     selectedRecord.serviceOrderID
-                      ? `#${selectedRecord.serviceOrderID}`
+                      ? `#${getDisplayOrderNumber(selectedRecord)}`
                       : "-"
                   }
                 />

@@ -199,6 +199,22 @@ export const cancelOrder = async (orderID) => {
 
 // ─── USERS (Manager) ────────────────────────────────────
 
+export const getWarehouseOrders = async () => {
+  const res = await fetch(`${API_URL}/api/warehouse/orders`);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Nije moguće učitati narudžbe.");
+  return data;
+};
+
+export const fulfillWarehouseOrder = async (orderID) => {
+  const res = await fetch(`${API_URL}/api/warehouse/orders/${orderID}/fulfill`, {
+    method: "PATCH",
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Nije moguće označiti narudžbu.");
+  return data;
+};
+
 export const getUsers = async () => {
   const res = await fetch(`${API_URL}/users`);
   if (!res.ok) throw new Error("Nije moguće dohvatiti korisnike.");

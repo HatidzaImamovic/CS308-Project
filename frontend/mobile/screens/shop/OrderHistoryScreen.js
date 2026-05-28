@@ -4,6 +4,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import styles, { COLORS } from '../styles/shopStyles';
 import { getUserOrders, cancelOrder } from '../../services/api';
 
+const getDisplayOrderNumber = (order) =>
+  order.orderNumber || order.sparePartsOrderID;
+
 const STATUS = {
   pending:   { label: 'Na čekanju', color: '#f59e0b', bg: 'rgba(245,158,11,0.2)' },
   completed: { label: 'Završeno',   color: '#4caf50', bg: 'rgba(76,175,80,0.2)'  },
@@ -43,7 +46,7 @@ export default function OrderHistoryScreen({ route, navigation }) {
     return (
       <View style={styles.card}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <Text style={styles.partName}>#ORD-{String(item.sparePartsOrderID).padStart(4, '0')}</Text>
+          <Text style={styles.partName}>#ORD-{String(getDisplayOrderNumber(item)).padStart(4, '0')}</Text>
           <View style={[styles.pill, { backgroundColor: s.bg }]}>
             <Text style={[styles.pillText, { color: s.color }]}>{s.label}</Text>
           </View>
