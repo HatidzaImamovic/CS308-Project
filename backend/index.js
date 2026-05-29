@@ -67,6 +67,24 @@ const ensureDefaultSpareParts = async (connection = db) => {
   );
 };
 
+const ensureServiceOrderPartsTable = async (connection = db) => {
+  await connection.query(
+    `CREATE TABLE IF NOT EXISTS serviceorderpart (
+      serviceOrderPartID INT AUTO_INCREMENT PRIMARY KEY,
+      serviceOrderID INT NOT NULL,
+      partID INT NOT NULL,
+      quantity INT NOT NULL,
+      unitPrice DECIMAL(10, 2) NOT NULL,
+      UNIQUE KEY unique_service_order_part (serviceOrderID, partID),
+      CONSTRAINT serviceorderpart_service_fk
+        FOREIGN KEY (serviceOrderID) REFERENCES serviceorder(serviceOrderID)
+        ON DELETE CASCADE,
+      CONSTRAINT serviceorderpart_part_fk
+        FOREIGN KEY (partID) REFERENCES sparepart(partID)
+    )`
+  );
+};
+
 const normalizeSelectedParts = (spareParts = []) => {
   if (!Array.isArray(spareParts)) return [];
 
@@ -82,6 +100,107 @@ const normalizeSelectedParts = (spareParts = []) => {
         Number.isInteger(part.quantity) &&
         part.quantity > 0
     );
+};
+
+const loadAndValidateSelectedParts = async (selectedParts, oldPartsById = new Map()) => {
+  if (selectedParts.length === 0) {
+    return { parts: [], partsTotal: 0, partDescriptions: [] };
+  }
+
+  const [parts] = await db.query(
+    `SELECT partID, name, price, stock
+     FROM sparepart
+     WHERE partID IN (?)`,
+    [selectedParts.map((part) => part.partID)]
+  );
+
+  const partsById = new Map(parts.map((part) => [Number(part.partID), part]));
+  let partsTotal = 0;
+  const partDescriptions = [];
+
+  for (const selectedPart of selectedParts) {
+    const part = partsById.get(selectedPart.partID);
+
+    if (!part) {
+      const error = new Error("Odabrani rezervni dio nije pronađen");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const previousQuantity = oldPartsById.get(selectedPart.partID)?.quantity || 0;
+    const additionalQuantity = selectedPart.quantity - previousQuantity;
+
+    if (additionalQuantity > 0 && Number(part.stock) < additionalQuantity) {
+      const error = new Error(`Nema dovoljno zaliha za dio "${part.name}"`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const partTotal = Number(part.price) * selectedPart.quantity;
+    partsTotal += partTotal;
+    partDescriptions.push(
+      `${part.name} x${selectedPart.quantity} (${partTotal.toFixed(2)} KM)`
+    );
+  }
+
+  return { parts: selectedParts.map((selectedPart) => ({
+    ...selectedPart,
+    unitPrice: Number(partsById.get(selectedPart.partID).price),
+  })), partsTotal, partDescriptions };
+};
+
+const syncServiceOrderParts = async (serviceOrderID, selectedParts) => {
+  await ensureServiceOrderPartsTable();
+
+  const [oldParts] = await db.query(
+    "SELECT partID, quantity FROM serviceorderpart WHERE serviceOrderID = ?",
+    [serviceOrderID]
+  );
+  const oldPartsById = new Map(
+    oldParts.map((part) => [Number(part.partID), { quantity: Number(part.quantity) }])
+  );
+
+  const { parts, partsTotal, partDescriptions } =
+    await loadAndValidateSelectedParts(selectedParts, oldPartsById);
+  const newPartsById = new Map(
+    parts.map((part) => [Number(part.partID), part])
+  );
+
+  for (const oldPart of oldParts) {
+    const partID = Number(oldPart.partID);
+    const oldQuantity = Number(oldPart.quantity);
+    const newQuantity = newPartsById.get(partID)?.quantity || 0;
+    const delta = newQuantity - oldQuantity;
+
+    if (delta !== 0) {
+      await db.query("UPDATE sparepart SET stock = stock - ? WHERE partID = ?", [
+        delta,
+        partID,
+      ]);
+    }
+  }
+
+  for (const part of parts) {
+    if (!oldPartsById.has(part.partID)) {
+      await db.query("UPDATE sparepart SET stock = stock - ? WHERE partID = ?", [
+        part.quantity,
+        part.partID,
+      ]);
+    }
+  }
+
+  await db.query("DELETE FROM serviceorderpart WHERE serviceOrderID = ?", [
+    serviceOrderID,
+  ]);
+
+  for (const part of parts) {
+    await db.query(
+      "INSERT INTO serviceorderpart (serviceOrderID, partID, quantity, unitPrice) VALUES (?, ?, ?, ?)",
+      [serviceOrderID, part.partID, part.quantity, part.unitPrice]
+    );
+  }
+
+  return { partsTotal, partDescriptions };
 };
 
 const getNextUserOrderNumber = async (connection, tableName, userID) => {
@@ -121,6 +240,9 @@ app.post("/login", async (req, res) => {
       res.status(401).json({ message: "Pogrešno korisničko ime ili lozinka" });
     }
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -132,6 +254,9 @@ app.get("/spareparts", async (req, res) => {
     const [rows] = await db.query("SELECT * FROM sparepart");
     res.json(rows);
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -149,8 +274,34 @@ app.get("/serviceorders/:userID", async (req, res) => {
       [req.params.userID]
     );
 
+    const orderIds = rows.map((row) => row.serviceOrderID);
+
+    if (orderIds.length > 0) {
+      await ensureServiceOrderPartsTable();
+      const [partRows] = await db.query(
+        "SELECT serviceOrderID, partID, quantity FROM serviceorderpart WHERE serviceOrderID IN (?)",
+        [orderIds]
+      );
+      const partsByOrder = partRows.reduce((acc, part) => {
+        const key = Number(part.serviceOrderID);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push({
+          partID: Number(part.partID),
+          quantity: Number(part.quantity),
+        });
+        return acc;
+      }, {});
+
+      rows.forEach((row) => {
+        row.spareParts = partsByOrder[Number(row.serviceOrderID)] || [];
+      });
+    }
+
     res.json(rows);
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -292,6 +443,18 @@ app.post("/serviceorders", async (req, res) => {
       ]);
     }
 
+    await ensureServiceOrderPartsTable();
+    for (const selectedPart of selectedParts) {
+      const [[part]] = await db.query(
+        "SELECT price FROM sparepart WHERE partID = ?",
+        [selectedPart.partID]
+      );
+      await db.query(
+        "INSERT INTO serviceorderpart (serviceOrderID, partID, quantity, unitPrice) VALUES (?, ?, ?, ?)",
+        [result.insertId, selectedPart.partID, selectedPart.quantity, Number(part.price)]
+      );
+    }
+
     await db.query(
       "INSERT INTO financialrecord (serviceOrderID, amount, paymentStatus, createdAt) VALUES (?, ?, ?, NOW())",
       [result.insertId, totalAmount, 1]
@@ -312,13 +475,16 @@ app.post("/serviceorders", async (req, res) => {
       totalAmount,
     });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
 app.put("/serviceorders/:id", async (req, res) => {
   const { id } = req.params;
-  const { serviceType, serialNumber, name, location, date, status } = req.body;
+  const { serviceType, serialNumber, name, location, date, status, spareParts = [] } = req.body;
 
   const typeMap = {
     Instalacija: "installation",
@@ -368,7 +534,17 @@ app.put("/serviceorders/:id", async (req, res) => {
       );
     }
 
-    const description = `Serial: ${serialNumber || ""}; Ime: ${name || ""}; Lokacija: ${location || ""}`;
+    const effectiveType = typeValue || existing.type;
+    const selectedParts = normalizeSelectedParts(spareParts);
+    const servicePrice = SERVICE_PRICES[effectiveType] || 0;
+    const { partsTotal, partDescriptions } = await syncServiceOrderParts(
+      existing.serviceOrderID,
+      selectedParts
+    );
+    const totalAmount = servicePrice + partsTotal;
+    const sparePartsDescription =
+      partDescriptions.length > 0 ? partDescriptions.join(", ") : "Nema";
+    const description = `Serial: ${serialNumber || ""}; Ime: ${name || ""}; Lokacija: ${location || ""}; Servis: ${servicePrice.toFixed(2)} KM; Rezervni dijelovi: ${sparePartsDescription}; Ukupno: ${totalAmount.toFixed(2)} KM`;
 
     const updates = [];
     const params = [];
@@ -403,8 +579,28 @@ app.put("/serviceorders/:id", async (req, res) => {
         .json({ message: "Servisni nalog nije pronađen za ažuriranje" });
     }
 
-    res.json({ message: "Servisni nalog je ažuriran" });
+    const [financialUpdate] = await db.query(
+      "UPDATE financialrecord SET amount = ? WHERE serviceOrderID = ?",
+      [totalAmount, existing.serviceOrderID]
+    );
+
+    if (financialUpdate.affectedRows === 0) {
+      await db.query(
+        "INSERT INTO financialrecord (serviceOrderID, amount, paymentStatus, createdAt) VALUES (?, ?, ?, NOW())",
+        [existing.serviceOrderID, totalAmount, 1]
+      );
+    }
+
+    res.json({
+      message: "Servisni nalog je ažuriran",
+      totalAmount,
+      partsTotal,
+      servicePrice,
+    });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -457,6 +653,19 @@ app.delete("/serviceorders/:id", async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    await ensureServiceOrderPartsTable();
+    const [orderParts] = await db.query(
+      "SELECT partID, quantity FROM serviceorderpart WHERE serviceOrderID = ?",
+      [existing.serviceOrderID]
+    );
+
+    for (const part of orderParts) {
+      await db.query("UPDATE sparepart SET stock = stock + ? WHERE partID = ?", [
+        part.quantity,
+        part.partID,
+      ]);
     }
 
     await db.query("DELETE FROM financialrecord WHERE serviceOrderID = ?", [

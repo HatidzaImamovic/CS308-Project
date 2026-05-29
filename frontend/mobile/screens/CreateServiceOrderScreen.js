@@ -246,12 +246,18 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
           }
         }
 
-        Alert.alert("Uspjeh", "Servisni nalog je uspješno kreiran!", [
-          {
-            text: "OK",
-            onPress: () => navigation.goBack(),
-          },
-        ]);
+        Alert.alert(
+          "Uspjeh",
+          isEditingServerOrder
+            ? "Servisni nalog je uspješno ažuriran!"
+            : "Servisni nalog je uspješno kreiran!",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.goBack(),
+            },
+          ],
+        );
       } catch (error) {
         console.error("Error creating service order:", error);
         Alert.alert(
