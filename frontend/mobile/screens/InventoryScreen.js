@@ -94,7 +94,7 @@ const PartFormModal = ({ visible, onClose, onSave, editPart }) => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{isEdit ? "Uredi dio" : "Novi dio"}</Text>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <Text style={styles.modalCloseText}>×</Text>
             </TouchableOpacity>
           </View>
 
@@ -180,7 +180,7 @@ const PartFormModal = ({ visible, onClose, onSave, editPart }) => {
 // ─── Part card ────────────────────────────────────────────────────────────────
 const PartCard = ({ item, onEdit, onDelete }) => {
   const inStock   = item.stock > 0;
-  const stockColor = item.stock === 0 ? "#E05A5A" : item.stock < 5 ? "#E8A838" : "#5CB85C";
+  const stockColor = item.stock === 0 ? "#e05a5a" : item.stock < 5 ? "#2ab8c4" : "#3dba7a";
 
   return (
     <View style={styles.partCard}>
@@ -206,14 +206,14 @@ const PartCard = ({ item, onEdit, onDelete }) => {
           onPress={() => onEdit(item)}
           activeOpacity={0.75}
         >
-          <Text style={styles.editBtnText}>✏️</Text>
+          <Text style={styles.editBtnText}>Uredi</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.deleteBtn}
           onPress={() => onDelete(item)}
           activeOpacity={0.75}
         >
-          <Text style={styles.deleteBtnText}>🗑️</Text>
+          <Text style={styles.deleteBtnText}>Briši</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -356,7 +356,7 @@ export default function InventoryScreen({ route, navigation }) {
 
             {/* Search */}
             <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>🔍</Text>
+              <Text style={styles.searchIcon}>Traži</Text>
               <TextInput
                 style={styles.searchInput}
                 value={search}
@@ -368,7 +368,7 @@ export default function InventoryScreen({ route, navigation }) {
               />
               {!!search && (
                 <TouchableOpacity onPress={() => setSearch("")}>
-                  <Text style={styles.searchClear}>✕</Text>
+                  <Text style={styles.searchClear}>×</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -421,69 +421,83 @@ export default function InventoryScreen({ route, navigation }) {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#446977" },
+const COLORS = {
+  bg:      "#1a3a3f",
+  panel:   "#1e5c6b",
+  accent:  "#2ab8c4",
+  white:   "#f0f4f6",
+  muted:   "#8fb3bf",
+  success: "#3dba7a",
+  warning: "#2ab8c4",
+  danger:  "#e05a5a",
+};
 
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: COLORS.bg },
+
+  // Header
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#446977", paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: "#7aa7b8",
+    backgroundColor: COLORS.bg, paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)",
   },
   backBtn:     { width: 80 },
-  backBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "600" },
-  headerTitle: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
+  backBtnText: { color: COLORS.white, fontSize: 15, fontWeight: "600" },
+  headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: "700" },
 
   listContent: { padding: 20, paddingBottom: 100 },
 
   welcomeSection:  { marginBottom: 20, marginTop: 4 },
-  welcomeTitle:    { color: "#ffffff", fontSize: 24, fontWeight: "700", letterSpacing: 0.2 },
-  welcomeSubtitle: { color: "#ffffff", fontSize: 14, marginTop: 4 },
+  welcomeTitle:    { color: COLORS.white, fontSize: 24, fontWeight: "700", letterSpacing: 0.2 },
+  welcomeSubtitle: { color: COLORS.muted, fontSize: 14, marginTop: 4 },
 
   // Stats
   statRow: { flexDirection: "row", gap: 8, marginBottom: 18 },
   statCard: {
-    flex: 1, backgroundColor: "#7aa7b8", borderRadius: 14,
-    paddingVertical: 12, alignItems: "center",
-    borderWidth: 1, borderColor: "#ffffff",
+    flex: 1, backgroundColor: COLORS.panel, borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 6,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
   },
-  statValue: { color: "#ffffff", fontSize: 20, fontWeight: "700" },
-  statLabel: { color: "rgba(255,255,255,0.8)", fontSize: 10, marginTop: 2, textAlign: "center" },
+  statValue: { color: COLORS.white, fontSize: 18, fontWeight: "700", textAlign: "center" },
+  statLabel: { color: COLORS.muted, fontSize: 10, marginTop: 3, textAlign: "center" },
 
   // Search
   searchBox: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#7aa7b8",
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 14, paddingHorizontal: 14, height: 46,
-    borderWidth: 1, borderColor: "#ffffff", marginBottom: 12,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", marginBottom: 12,
   },
-  searchIcon:  { fontSize: 14, marginRight: 8 },
-  searchInput: { flex: 1, color: "#ffffff", fontSize: 14 },
-  searchClear: { color: "rgba(255,255,255,0.7)", fontSize: 14, paddingLeft: 8 },
+  searchIcon:  { fontSize: 14, marginRight: 8, color: COLORS.muted },
+  searchInput: { flex: 1, color: COLORS.white, fontSize: 14 },
+  searchClear: { color: COLORS.muted, fontSize: 14, paddingLeft: 8 },
 
   // Filters
   filterScroll:         { marginBottom: 12 },
   filterContent:        { gap: 8 },
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1, borderColor: "#ffffff",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)",
   },
-  filterChipActive:     { backgroundColor: "rgba(255,255,255,0.3)" },
-  filterChipText:       { color: "#ffffff", fontSize: 12, fontWeight: "600" },
-  filterChipTextActive: { fontWeight: "700" },
+  filterChipActive:     { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  filterChipText:       { color: COLORS.muted, fontSize: 12, fontWeight: "600" },
+  filterChipTextActive: { color: COLORS.white, fontWeight: "700" },
 
-  resultsCount: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 12 },
+  resultsCount: { color: COLORS.muted, fontSize: 12, marginBottom: 12 },
 
   // Part card
   partCard: {
     flexDirection: "row", alignItems: "center",
-    backgroundColor: "#7aa7b8", borderRadius: 14,
-    padding: 14, borderWidth: 1, borderColor: "#ffffff", marginBottom: 10,
+    backgroundColor: COLORS.panel, borderRadius: 14,
+    padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)", marginBottom: 10,
   },
   partInfo:  { flex: 1 },
-  partName:  { color: "#ffffff", fontSize: 15, fontWeight: "700", marginBottom: 3 },
-  partDesc:  { color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 6 },
+  partName:  { color: COLORS.white, fontSize: 15, fontWeight: "700", marginBottom: 3 },
+  partDesc:  { color: COLORS.muted, fontSize: 12, marginBottom: 6 },
   partMeta:  { flexDirection: "row", alignItems: "center", gap: 10 },
-  partPrice: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
+  partPrice: { color: COLORS.white, fontSize: 14, fontWeight: "800" },
   stockBadge: {
     flexDirection: "row", alignItems: "center",
     borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
@@ -492,30 +506,32 @@ const styles = StyleSheet.create({
   stockText: { fontSize: 12, fontWeight: "700" },
   cardActions: { flexDirection: "column", gap: 6, marginLeft: 10 },
   editBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center", justifyContent: "center", marginLeft: 10,
-  },
-  editBtnText: { fontSize: 16 },
-  deleteBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: "rgba(224,90,90,0.2)",
+    paddingHorizontal: 12, height: 34, borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.10)",
     alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
   },
-  deleteBtnText: { fontSize: 16 },
+  editBtnText: { fontSize: 13, color: COLORS.white, fontWeight: "700" },
+  deleteBtn: {
+    paddingHorizontal: 12, height: 34, borderRadius: 8,
+    backgroundColor: "rgba(224,90,90,0.15)",
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(224,90,90,0.25)",
+  },
+  deleteBtnText: { fontSize: 13, color: COLORS.danger, fontWeight: "700" },
 
   // FAB
   fab: {
     position: "absolute", bottom: 32, right: 24,
     width: 58, height: 58, borderRadius: 29,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.accent,
     alignItems: "center", justifyContent: "center",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 6, elevation: 8,
+    shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
   },
-  fabText: { color: "#446977", fontSize: 30, fontWeight: "300", lineHeight: 34 },
+  fabText: { color: COLORS.white, fontSize: 30, fontWeight: "300", lineHeight: 34 },
 
-  emptyText: { color: "rgba(255,255,255,0.6)", textAlign: "center", marginTop: 40, fontSize: 14 },
+  emptyText: { color: COLORS.muted, textAlign: "center", marginTop: 40, fontSize: 14 },
 
   // Modal
   modalOverlay: {
@@ -523,48 +539,47 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
   },
   modalSheet: {
-    backgroundColor: "#446977",
+    backgroundColor: COLORS.bg,
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     maxHeight: "88%",
     paddingBottom: Platform.OS === "ios" ? 34 : 16,
-    borderTopWidth: 1, borderColor: "#7aa7b8",
+    borderTopWidth: 1, borderColor: "rgba(255,255,255,0.12)",
   },
   modalHandle: {
-    width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.4)",
+    width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 4,
   },
   modalHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: "#7aa7b8",
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)",
   },
-  modalTitle:    { color: "#ffffff", fontSize: 18, fontWeight: "800" },
+  modalTitle:    { color: COLORS.white, fontSize: 18, fontWeight: "800" },
   modalCloseBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.10)",
     alignItems: "center", justifyContent: "center",
   },
-  modalCloseText: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
+  modalCloseText: { color: COLORS.white, fontSize: 18, fontWeight: "700" },
   modalBody:      { paddingHorizontal: 20, paddingTop: 18 },
 
   twoCol:     { flexDirection: "row", marginTop: 14 },
   fieldLabel: {
-    color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: "700",
+    color: COLORS.muted, fontSize: 11, fontWeight: "700",
     marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6,
   },
-  fieldError: { color: "#ffb3b3", fontSize: 11, marginTop: 4 },
+  fieldError: { color: COLORS.danger, fontSize: 11, marginTop: 4 },
   input: {
-    backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
-    color: "#ffffff", fontSize: 14,
-    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.25)",
+    color: COLORS.white, fontSize: 14,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)",
     marginBottom: 4,
   },
-  inputError: { borderColor: "#ffb3b3" },
+  inputError: { borderColor: COLORS.danger },
   saveBtn: {
-    backgroundColor: "#7aa7b8", borderRadius: 14, paddingVertical: 15,
+    backgroundColor: COLORS.accent, borderRadius: 14, paddingVertical: 15,
     alignItems: "center", marginTop: 20,
-    borderWidth: 1, borderColor: "#ffffff",
   },
-  saveBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "800" },
+  saveBtnText: { color: COLORS.white, fontSize: 15, fontWeight: "800" },
 });

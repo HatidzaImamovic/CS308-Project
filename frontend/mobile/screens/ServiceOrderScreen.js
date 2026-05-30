@@ -17,7 +17,7 @@ import {
   getServiceOrders,
   deleteServiceOrder,
 } from "../services/api";
-import styles from "./styles/serviceOrderScreen";
+import styles, { COLORS } from "./styles/serviceOrderScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
 
@@ -86,7 +86,6 @@ const normalizeOrderType = (order) => {
 const ServiceOrderItem = ({ item, onPress }) => {
   const isDraft = item.isDraft === true;
   const statusText = isDraft ? "Otvoren" : "Zatvoren";
-  const statusColor = isDraft ? "#ffc107" : "#28a745";
   const orderType = getTypeText(normalizeOrderType(item));
   const locationText = item.location || item.description || "Nepoznato";
   const orderDate = item.createdAt || item.date || item.updatedAt || "";
@@ -96,17 +95,9 @@ const ServiceOrderItem = ({ item, onPress }) => {
     <TouchableOpacity style={styles.orderItem} onPress={onPress}>
       <View style={styles.orderHeader}>
         <Text style={styles.orderId}>#{getDisplayOrderNumber(item)}</Text>
-        <Text
-          style={[
-            styles.orderStatus,
-            {
-              backgroundColor: statusColor + "20",
-              color: statusColor,
-            },
-          ]}
-        >
-          {statusText}
-        </Text>
+        <View style={[styles.statusBadge, isDraft ? styles.pendingBadge : styles.doneBadge]}>
+          <Text style={styles.statusText}>{statusText}</Text>
+        </View>
       </View>
       <Text style={styles.orderType}>{orderType}</Text>
       <Text style={styles.orderLocation}>{locationText}</Text>
@@ -354,7 +345,7 @@ export default function ServiceOrderScreen({ route, navigation }) {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Pretraži ime, lokaciju ili tip"
-          placeholderTextColor="#5c6f78"
+          placeholderTextColor={COLORS.muted}
           style={styles.searchInput}
         />
 
@@ -384,6 +375,8 @@ export default function ServiceOrderScreen({ route, navigation }) {
             </TouchableOpacity>
           ))}
 
+          <View style={styles.filterDivider} />
+
           {FILTER_TYPES.map((filter) => (
             <TouchableOpacity
               key={filter.value}
@@ -403,6 +396,8 @@ export default function ServiceOrderScreen({ route, navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
+
+          <View style={styles.filterDivider} />
 
           {SORT_OPTIONS.map((option) => (
             <TouchableOpacity
@@ -472,7 +467,7 @@ export default function ServiceOrderScreen({ route, navigation }) {
 
       {!disableCreate && (
         <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
-          <Text style={styles.addButtonText}>+</Text>
+          <Text style={styles.addButtonText}>＋</Text>
         </TouchableOpacity>
       )}
     </SafeAreaView>

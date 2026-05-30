@@ -29,9 +29,9 @@ const TYPE_FILTERS = [
 ];
 
 const TYPE_COLORS = {
-  installation: "#4EA8BE",
-  repair:       "#E05A5A",
-  maintenance:  "#E8A838",
+  installation: "#2ab8c4",
+  repair:       "#3dba7a",
+  maintenance:  "#8fb3bf",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -55,11 +55,10 @@ const getDisplayOrderNumber = (order) =>
 
 // ─── Order card ───────────────────────────────────────────────────────────────
 const OrderCard = ({ item }) => {
-  const typeColor  = TYPE_COLORS[item.type] || "#7aa7b8";
+  const typeColor  = TYPE_COLORS[item.type] || "#1e5c6b";
   const typeLabel  = getTypeText(item.type);
   const isClosed   = Number(item.status) === 1;
   const statusText = isClosed ? "Zatvoren" : "Otvoren";
-  const statusColor= isClosed ? "#5CB85C" : "#ffc107";
   const firstName  = item.fName || "";
   const lastName   = item.lName || "";
   const fullName   = firstName && lastName ? `${firstName} ${lastName}` : item.username || "Nepoznat";
@@ -70,9 +69,8 @@ const OrderCard = ({ item }) => {
       {/* Top row: ID + status */}
       <View style={styles.orderTopRow}>
         <Text style={styles.orderId}>#{getDisplayOrderNumber(item)}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusColor + "25" }]}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+        <View style={[styles.statusBadge, isClosed ? styles.doneBadge : styles.pendingBadge]}>
+          <Text style={styles.statusText}>{statusText}</Text>
         </View>
       </View>
 
@@ -172,7 +170,7 @@ export default function AllServiceOrdersScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#446977" />
+      <StatusBar barStyle="light-content" backgroundColor="#1a3a3f" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -215,11 +213,11 @@ export default function AllServiceOrdersScreen({ route, navigation }) {
                 <Text style={styles.statLabel}>Ukupno</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={[styles.statValue, { color: "#5CB85C" }]}>{closedCount}</Text>
+                <Text style={styles.statValue}>{closedCount}</Text>
                 <Text style={styles.statLabel}>Zatvoreni</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={[styles.statValue, { color: "#4EA8BE", fontSize: 16 }]}>
+                <Text style={styles.statValue}>
                   {totalAmount.toFixed(0)} KM
                 </Text>
                 <Text style={styles.statLabel}>Prihod</Text>
@@ -228,7 +226,7 @@ export default function AllServiceOrdersScreen({ route, navigation }) {
 
             {/* Search */}
             <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>🔍</Text>
+              <Text style={styles.searchIcon}>Traži</Text>
               <TextInput
                 style={styles.searchInput}
                 value={search}
@@ -240,7 +238,7 @@ export default function AllServiceOrdersScreen({ route, navigation }) {
               />
               {!!search && (
                 <TouchableOpacity onPress={() => setSearch("")}>
-                  <Text style={styles.searchClear}>✕</Text>
+                  <Text style={styles.searchClear}>×</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -290,83 +288,99 @@ export default function AllServiceOrdersScreen({ route, navigation }) {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const COLORS = {
+  bg:      "#1a3a3f",
+  panel:   "#1e5c6b",
+  accent:  "#2ab8c4",
+  white:   "#f0f4f6",
+  muted:   "#8fb3bf",
+  success: "#3dba7a",
+  warning: "#2ab8c4",
+  danger:  "#e05a5a",
+};
+
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#446977" },
+  safeArea: { flex: 1, backgroundColor: COLORS.bg },
 
   // Header
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#446977", paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: "#7aa7b8",
+    backgroundColor: COLORS.bg, paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: COLORS.panel,
   },
   backBtn:     { width: 80 },
-  backBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "600" },
-  headerTitle: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
+  backBtnText: { color: COLORS.white, fontSize: 15, fontWeight: "600" },
+  headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: "700" },
 
   // List
   listContent: { padding: 20, paddingBottom: 40 },
 
   // Welcome
   welcomeSection:  { marginBottom: 20, marginTop: 4 },
-  welcomeTitle:    { color: "#ffffff", fontSize: 24, fontWeight: "700", letterSpacing: 0.2 },
-  welcomeSubtitle: { color: "#ffffff", fontSize: 14, marginTop: 4 },
+  welcomeTitle:    { color: COLORS.white, fontSize: 24, fontWeight: "700", letterSpacing: 0.2 },
+  welcomeSubtitle: { color: COLORS.muted, fontSize: 14, marginTop: 4 },
 
   // Stat row
-  statRow: { flexDirection: "row", gap: 8, marginBottom: 18 },
+  statRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
   statCard: {
-    flex: 1, backgroundColor: "#7aa7b8", borderRadius: 14,
-    paddingVertical: 12, alignItems: "center",
-    borderWidth: 1, borderColor: "#ffffff",
+    flex: 1, backgroundColor: COLORS.panel, borderRadius: 16,
+    paddingVertical: 14, paddingHorizontal: 10,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
   },
-  statValue: { color: "#ffffff", fontSize: 20, fontWeight: "700" },
-  statLabel: { color: "rgba(255,255,255,0.8)", fontSize: 10, marginTop: 2, textAlign: "center" },
+  statValue: { color: COLORS.white, fontSize: 20, fontWeight: "700", textAlign: "center" },
+  statLabel: { color: COLORS.muted, fontSize: 11, marginTop: 3, textAlign: "center" },
 
   // Search
   searchBox: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#7aa7b8",
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 14, paddingHorizontal: 14, height: 46,
-    borderWidth: 1, borderColor: "#ffffff", marginBottom: 12,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", marginBottom: 12,
   },
-  searchIcon:  { fontSize: 14, marginRight: 8 },
-  searchInput: { flex: 1, color: "#ffffff", fontSize: 14 },
-  searchClear: { color: "rgba(255,255,255,0.7)", fontSize: 14, paddingLeft: 8 },
+  searchIcon:  { fontSize: 14, marginRight: 8, color: COLORS.muted },
+  searchInput: { flex: 1, color: COLORS.white, fontSize: 14 },
+  searchClear: { color: COLORS.muted, fontSize: 14, paddingLeft: 8 },
 
   // Filters
-  filterScroll:         { marginBottom: 12 },
+  filterScroll:         { marginBottom: 18 },
   filterContent:        { gap: 8, alignItems: "center" },
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1, borderColor: "#ffffff",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)",
   },
-  filterChipActive:     { backgroundColor: "rgba(255,255,255,0.3)" },
-  filterChipText:       { color: "#ffffff", fontSize: 12, fontWeight: "600" },
-  filterChipTextActive: { fontWeight: "700" },
-  filterDivider:        { width: 1, height: 28, backgroundColor: "rgba(255,255,255,0.3)", marginHorizontal: 4 },
+  filterChipActive:     { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  filterChipText:       { color: COLORS.white, fontSize: 12, fontWeight: "600" },
+  filterChipTextActive: { color: COLORS.white, fontWeight: "700" },
+  filterDivider:        { width: 1, height: 28, backgroundColor: "rgba(255,255,255,0.15)", marginHorizontal: 4 },
 
   // Results
-  resultsCount: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 12 },
+  resultsCount: { color: COLORS.muted, fontSize: 12, marginBottom: 12 },
 
   // Order card
   orderCard: {
-    backgroundColor: "#7aa7b8", borderRadius: 14,
-    padding: 14, borderWidth: 1, borderColor: "#ffffff", marginBottom: 12,
+    backgroundColor: COLORS.panel, borderRadius: 16,
+    padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)", marginBottom: 12,
   },
   orderTopRow:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  orderId:      { color: "#ffffff", fontSize: 15, fontWeight: "800" },
-  statusBadge:  { flexDirection: "row", alignItems: "center", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  statusDot:    { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
-  statusText:   { fontSize: 12, fontWeight: "700" },
+  orderId:      { color: COLORS.white, fontSize: 15, fontWeight: "800" },
+  statusBadge:  { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  pendingBadge: { backgroundColor: "rgba(232,168,56,0.22)" },
+  doneBadge:    { backgroundColor: "rgba(61,186,122,0.22)" },
+  statusText:   { color: COLORS.white, fontSize: 11, fontWeight: "800" },
   typeBadge:    { alignSelf: "flex-start", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10 },
   typeText:     { fontSize: 12, fontWeight: "700" },
 
   // Details grid
   detailsGrid: { gap: 5 },
   detailRow:   { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  detailLabel: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
-  detailValue: { color: "#ffffff", fontSize: 12, fontWeight: "600", maxWidth: "60%", textAlign: "right" },
-  amountText:  { color: "#ffffff", fontWeight: "800", fontSize: 13 },
+  detailLabel: { color: COLORS.muted, fontSize: 12 },
+  detailValue: { color: COLORS.white, fontSize: 12, fontWeight: "600", maxWidth: "60%", textAlign: "right" },
+  amountText:  { color: COLORS.white, fontWeight: "800", fontSize: 13 },
 
   // Empty
-  emptyText: { color: "rgba(255,255,255,0.6)", textAlign: "center", marginTop: 40, fontSize: 14 },
+  emptyText: { color: COLORS.muted, textAlign: "center", marginTop: 40, fontSize: 14 },
 });

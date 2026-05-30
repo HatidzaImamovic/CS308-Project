@@ -12,9 +12,12 @@ import {
 import { getFinancialRecords } from "../services/api";
 import styles from "./styles/financialScreen";
 
-const SORT_OPTIONS = [
+const SORT_BY_DATE = [
   { label: "Najnovije", field: "createdAt", direction: "desc" },
   { label: "Najstarije", field: "createdAt", direction: "asc" },
+];
+
+const SORT_BY_AMOUNT = [
   { label: "Najmanji iznos", field: "amount", direction: "asc" },
   { label: "Najveci iznos", field: "amount", direction: "desc" },
 ];
@@ -35,7 +38,7 @@ export default function FinancialScreen({ route, navigation }) {
   const [error, setError] = useState("");
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [activeSort, setActiveSort] = useState(SORT_OPTIONS[0]);
+  const [activeSort, setActiveSort] = useState(SORT_BY_DATE[0]);
 
   useEffect(() => {
     fetchRecords();
@@ -137,7 +140,30 @@ export default function FinancialScreen({ route, navigation }) {
           style={styles.filterScroll}
           contentContainerStyle={styles.filterScrollContent}
         >
-          {SORT_OPTIONS.map((option) => (
+          {SORT_BY_DATE.map((option) => (
+            <TouchableOpacity
+              key={option.label}
+              onPress={() => setActiveSort(option)}
+              style={[
+                styles.filterChip,
+                activeSort.label === option.label && styles.filterChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  activeSort.label === option.label &&
+                    styles.filterChipTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          <View style={styles.filterDivider} />
+
+          {SORT_BY_AMOUNT.map((option) => (
             <TouchableOpacity
               key={option.label}
               onPress={() => setActiveSort(option)}

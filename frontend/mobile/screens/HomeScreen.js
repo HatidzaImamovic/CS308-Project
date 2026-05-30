@@ -3,19 +3,22 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   SafeAreaView,
   StatusBar,
   Image,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { getServiceOrders } from "../services/api";
-import styles from "./styles/homeScreen";
+import styles, { COLORS } from "./styles/homeScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const getDisplayOrderNumber = (order) =>
   order.orderNumber ||
   order.serviceOrderNumber ||
@@ -28,357 +31,322 @@ const normalizeUserName = (user) => {
     user?.fName || user?.fname || user?.firstName || user?.first_name;
   const lastName =
     user?.lName || user?.lname || user?.lastName || user?.last_name;
-  if (firstName && lastName) {
+  if (firstName && lastName)
     return { firstName: firstName.trim(), lastName: lastName.trim() };
-  }
 
   const fullName = (user?.name || user?.username || "").trim();
   if (fullName.includes(" ")) {
     const [first, ...rest] = fullName.split(/\s+/);
     return { firstName: first, lastName: rest.join(" ") };
   }
-
   return {
     firstName: firstName?.trim() || fullName || "",
     lastName: lastName?.trim() || "",
   };
 };
 
+const getTypeText = (type) => {
+  switch (type) {
+    case "installation":
+    case "Instalacija":
+      return "Instalacija";
+    case "repair":
+    case "Popravak":
+      return "Popravak";
+    case "maintenance":
+    case "Održavanje":
+      return "Održavanje";
+    default:
+      return type || "Nepoznato";
+  }
+};
+
+const normalizeOrderType = (order) => {
+  const rawType = (order.type || order.serviceType || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+  if (rawType.includes("install") || rawType.includes("instal"))
+    return "installation";
+  if (rawType.includes("poprav")) return "repair";
+  if (
+    rawType.includes("održ") ||
+    rawType.includes("odrz") ||
+    rawType.includes("odrzav")
+  )
+    return "maintenance";
+  if (["installation", "repair", "maintenance"].includes(rawType))
+    return rawType;
+  return rawType;
+};
+
+const formatOrderDate = (order) => {
+  const dateValue = order.createdAt || order.date || order.updatedAt;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString();
+};
+
+const getRecentOrderTitle = (order) => {
+  const typeLabel = getTypeText(normalizeOrderType(order));
+  const customer = (
+    order.name ||
+    order.customerName ||
+    order.customer ||
+    ""
+  ).trim();
+  return customer ? `${typeLabel} — ${customer}` : typeLabel;
+};
+
+const formatOrderSubtitle = (order) => {
+  const dateValue = order.createdAt || order.date || order.updatedAt;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime()))
+    return `#${getDisplayOrderNumber(order)}`;
+
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  const dayLabel =
+    date.toDateString() === now.toDateString()
+      ? "Danas"
+      : date.toDateString() === yesterday.toDateString()
+        ? "Jučer"
+        : date.toLocaleDateString();
+
+  const time = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `#${getDisplayOrderNumber(order)} · ${dayLabel}${time ? `, ${time}` : ""}`;
+};
+
+const getOrderStatusText = (order) =>
+  order.isDraft || Number(order.status) === 0 ? "Otvoren" : "Zatvoren";
+
+// ─── Header ───────────────────────────────────────────────────────────────────
 const Header = ({ user }) => {
   const { firstName, lastName } = normalizeUserName(user);
+  const displayName =
+    firstName && lastName
+      ? `${firstName} ${lastName}`
+      : firstName || "Korisnik";
   const userRole = user?.role || "Serviser";
 
   return (
     <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <View style={styles.headerIconBox}>
-          <Image
-            source={require("../public/centrometalLogo.png")}
-            style={styles.logoImage}
-          />
-        </View>
-      </View>
-      <View style={styles.headerRight}>
-        <View style={styles.headerUserInfo}>
-          <Text style={styles.headerUserName}>
-            {firstName && lastName
-              ? `${firstName} ${lastName}`
-              : firstName
-                ? firstName
-                : "Korisnik"}
-          </Text>
-          <Text style={styles.headerUserRole}>{userRole}</Text>
-        </View>
+      <Image
+        source={require("../public/centrometalLogo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+      <View style={styles.headerUser}>
+        <Text style={styles.headerName}>{displayName}</Text>
+        <Text style={styles.headerRole}>{userRole}</Text>
       </View>
     </View>
   );
 };
 
-const ActionCard = ({ iconSource, title, subtitle, onPress, style }) => (
-  <TouchableOpacity
-    style={[styles.actionCard, style]}
-    onPress={onPress}
-    activeOpacity={0.75}
-  >
-    <View style={styles.actionIconBox}>
-      <Image source={iconSource} style={styles.actionIcon} />
-    </View>
-    <Text style={styles.actionTitle}>{title}</Text>
-    <Text style={styles.actionSubtitle}>{subtitle}</Text>
-  </TouchableOpacity>
-);
-
-const StatBox = ({ label, value }) => (
-  <View style={styles.statBox}>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statValue}>{value}</Text>
+// ─── Stat card (manager-style individual card) ────────────────────────────────
+const StatCard = ({ label, value }) => (
+  <View style={styles.statCard}>
+    <Text style={styles.statCardValue}>{value}</Text>
+    <Text style={styles.statCardLabel}>{label}</Text>
   </View>
 );
 
+// ─── Order card (recent nalog) ────────────────────────────────────────────────
+const OrderCard = ({ order, onPress }) => {
+  const isDraft = order.isDraft || Number(order.status) === 0;
+
+  return (
+    <TouchableOpacity
+      style={styles.orderCard}
+      onPress={() => onPress(order)}
+      activeOpacity={0.82}
+    >
+      <View style={styles.orderHeader}>
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <Text style={styles.orderTitle}>{getRecentOrderTitle(order)}</Text>
+          <Text style={styles.orderSubtitle}>{formatOrderSubtitle(order)}</Text>
+        </View>
+        <View style={[styles.statusBadge, isDraft ? styles.pendingBadge : styles.doneBadge]}>
+          <Text style={styles.statusText}>{getOrderStatusText(order)}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
 export default function HomeScreen({ route, navigation }) {
   const { user } = route?.params || {};
-  const [openCount, setOpenCount] = useState(0);
-  const [closedCount, setClosedCount] = useState(0);
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [openCount,     setOpenCount]     = useState(0);
+  const [closedCount,   setClosedCount]   = useState(0);
+  const [recentOrders,  setRecentOrders]  = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [refreshing,    setRefreshing]    = useState(false);
 
-  const handleKreirajNalog = () => {
-    navigation.navigate("ServiceOrder", { user });
-  };
-
-  const getTypeText = (type) => {
-    switch (type) {
-      case "installation":
-      case "Instalacija":
-        return "Instalacija";
-      case "repair":
-      case "Popravak":
-        return "Popravak";
-      case "maintenance":
-      case "Održavanje":
-        return "Održavanje";
-      default:
-        return type || "Nepoznato";
+  const loadOrders = useCallback(async () => {
+    const userId = user?.id || user?.userID;
+    if (!userId) {
+      setOpenCount(0);
+      setClosedCount(0);
+      setRecentOrders([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
+
+    try {
+      const orders     = await getServiceOrders(userId);
+      const draftsJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
+      const drafts     = draftsJson ? JSON.parse(draftsJson) : [];
+
+      const draftOrders   = drafts.map((d) => ({ ...d, isDraft: true }));
+      const backendOrders = orders.map((o) => ({ ...o, isDraft: false }));
+
+      setOpenCount(draftOrders.length);
+      setClosedCount(backendOrders.length);
+
+      const combined = [...draftOrders, ...backendOrders].sort((a, b) => {
+        const aTime = new Date(a.createdAt || a.date || a.updatedAt || 0).getTime();
+        const bTime = new Date(b.createdAt || b.date || b.updatedAt || 0).getTime();
+        return bTime - aTime;
+      });
+
+      setRecentOrders(combined);
+    } catch (err) {
+      console.error("Error loading orders:", err);
+      setOpenCount(0);
+      setClosedCount(0);
+      setRecentOrders([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadOrders();
+    }, [loadOrders])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadOrders();
   };
 
-  const normalizeOrderType = (order) => {
-    const rawType = (order.type || order.serviceType || "")
-      .toString()
-      .trim()
-      .toLowerCase();
-    if (rawType.includes("install") || rawType.includes("instal"))
-      return "installation";
-    if (rawType.includes("poprav")) return "repair";
-    if (
-      rawType.includes("održ") ||
-      rawType.includes("odrz") ||
-      rawType.includes("odrzav")
-    )
-      return "maintenance";
-    if (["installation", "repair", "maintenance"].includes(rawType))
-      return rawType;
-    return rawType;
-  };
-
-  const formatOrderDate = (order) => {
-    const dateValue = order.createdAt || order.date || order.updatedAt;
-    const date = new Date(dateValue);
-    if (Number.isNaN(date.getTime())) return "--";
-    return date.toLocaleDateString();
-  };
-
-  const getOrderTitle = (order) => {
-    const typeLabel = getTypeText(normalizeOrderType(order));
-    return typeLabel;
-  };
-
-  const getRecentOrderTitle = (order) => {
-    const typeLabel = getTypeText(normalizeOrderType(order));
-    const customer = (
-      order.name ||
-      order.customerName ||
-      order.customer ||
-      ""
-    ).trim();
-    return customer ? `${typeLabel} — ${customer}` : typeLabel;
-  };
-
-  const formatOrderSubtitle = (order) => {
-    const dateValue = order.createdAt || order.date || order.updatedAt;
-    const date = new Date(dateValue);
-    if (Number.isNaN(date.getTime()))
-      return `#${getDisplayOrderNumber(order)}`;
-
-    const now = new Date();
-    const today = now.toDateString();
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-
-    const dayLabel =
-      date.toDateString() === today
-        ? "Danas"
-        : date.toDateString() === yesterday.toDateString()
-          ? "Jučer"
-          : date.toLocaleDateString();
-
-    const time = date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    return `#${getDisplayOrderNumber(order)} · ${dayLabel}${time ? `, ${time}` : ""}`;
-  };
-
-  const getOrderStatusText = (order) =>
-    order.isDraft || Number(order.status) === 0 ? "Otvoren" : "Zatvoren";
-
-  const handleShowAllRecent = () => {
-    navigation.navigate("ServiceOrder", { user });
-  };
-
-  const handleRecentOrderPress = (order) => {
+  const handleOrderPress = (order) => {
     if (order.isDraft) {
       navigation.navigate("CreateServiceOrder", { user, draft: order });
       return;
     }
-
     Alert.alert(
       `Nalog #${getDisplayOrderNumber(order)}`,
-      `Tip: ${getOrderTitle(order)}\nDatum: ${formatOrderDate(order)}\nStatus: ${getOrderStatusText(order)}\n${order.description ? `\nOpis: ${order.description}` : ""}`,
-      [{ text: "OK" }],
+      `Tip: ${getTypeText(normalizeOrderType(order))}\nDatum: ${formatOrderDate(order)}\nStatus: ${getOrderStatusText(order)}${order.description ? `\n\nOpis: ${order.description}` : ""}`,
+      [{ text: "OK" }]
     );
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      const loadCounts = async () => {
-        const userId = user?.id || user?.userID;
-        if (!userId) {
-          setOpenCount(0);
-          setClosedCount(0);
-          setRecentOrders([]);
-          return;
-        }
+  // ── List header (everything above the orders) ────────────────────────────────
+  const ListHeader = () => (
+    <>
+      {/* Nav cards — full-width, matches manager navCard pattern */}
+      <View style={styles.navSection}>
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() => navigation.navigate("ServiceOrder", { user })}
+          activeOpacity={0.82}
+        >
+          <Image source={require("../public/nalog.png")} style={styles.navCardIcon} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.navCardTitle}>Servisni nalog</Text>
+            <Text style={styles.navCardSub}>Kreiraj i upravljaj nalozima</Text>
+          </View>
+        </TouchableOpacity>
 
-        try {
-          const orders = await getServiceOrders(userId);
-          const draftsJson = await AsyncStorage.getItem(
-            DRAFTS_STORAGE_KEY(userId),
-          );
-          const drafts = draftsJson ? JSON.parse(draftsJson) : [];
-          const draftOrders = drafts.map((draft) => ({
-            ...draft,
-            isDraft: true,
-          }));
-          const backendOrders = orders.map((order) => ({
-            ...order,
-            isDraft: false,
-          }));
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() => navigation.navigate("Catalogue", { user })}
+          activeOpacity={0.82}
+        >
+          <Image source={require("../public/shop.png")} style={styles.navCardIcon} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.navCardTitle}>Shop</Text>
+            <Text style={styles.navCardSub}>Pregled kataloga dijelova</Text>
+          </View>
+        </TouchableOpacity>
 
-          const openDrafts = draftOrders.length;
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() => navigation.navigate("Financije", { user })}
+          activeOpacity={0.82}
+        >
+          <Image source={require("../public/financije.png")} style={styles.navCardIcon} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.navCardTitle}>Financije</Text>
+            <Text style={styles.navCardSub}>Pregled troškova i prihoda</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
-          setOpenCount(openDrafts);
-          setClosedCount(backendOrders.length);
+      {/* Stat cards row — matches manager layout */}
+      <View style={styles.statCardsRow}>
+        <StatCard label="Otvoreni" value={String(openCount)} />
+        <StatCard label="Završeni" value={String(closedCount)} />
+      </View>
 
-          const recentCombined = [...draftOrders, ...backendOrders]
-            .sort((a, b) => {
-              const aTime = new Date(
-                a.createdAt || a.date || a.updatedAt || 0,
-              ).getTime();
-              const bTime = new Date(
-                b.createdAt || b.date || b.updatedAt || 0,
-              ).getTime();
-              return bTime - aTime;
-            })
-            .slice(0, 3);
-
-          setRecentOrders(recentCombined);
-        } catch (err) {
-          console.error("Error loading order counts:", err);
-          setOpenCount(0);
-          setClosedCount(0);
-          setRecentOrders([]);
-        }
-      };
-
-      loadCounts();
-    }, [user]),
+      {/* Recent orders header */}
+      <View style={styles.listHeader}>
+        <Text style={styles.sectionLabel}>NEDAVNI NALOZI</Text>
+        <Text style={styles.listCount}>{recentOrders.length} prikazano</Text>
+      </View>
+    </>
   );
-
-const handleShop = () => {
-  navigation.navigate('Catalogue', { user });
-};
-
-  const handleFinancije = () => {
-    navigation.navigate('Financije', { user });
-  };
-
-  const handleOdjava = () => {
-    navigation.navigate("Login");
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#446977" />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
       <Header user={user} />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Dobrodošli natrag</Text>
-          <Text style={styles.welcomeSubtitle}>
-            Odaberite akciju s kojom želite nastaviti
-          </Text>
+
+      {loading && !refreshing ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={COLORS.white} size="large" />
         </View>
-
-        <View style={styles.cardsRow}>
-          <ActionCard
-            iconSource={require("../public/nalog.png")}
-            title="Servisni nalog"
-            subtitle="Dodaj novi nalog ili nastavi s postojećim"
-            onPress={handleKreirajNalog}
-            style={styles.actionCard}
-          />
-          <ActionCard
-            iconSource={require("../public/shop.png")}
-            title="Shop"
-            subtitle="Rezervni dijelovi i oprema"
-            onPress={handleShop}
-            style={styles.actionCard}
-          />
-          <ActionCard
-            iconSource={require("../public/financije.png")}
-            title="Financije"
-            subtitle="Računi, plaćanja i izvještaji"
-            onPress={handleFinancije}
-            style={[styles.actionCard, styles.actionCardLast]}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={styles.quickOverview}
-          activeOpacity={0.85}
-          onPress={handleKreirajNalog}
-        >
-          <Text style={styles.quickOverviewLabel}>BRZI PREGLED</Text>
-          <View style={styles.statsRow}>
-            <StatBox label="Otvoreni servisi" value={String(openCount)} />
-            <View style={styles.statDivider} />
-            <StatBox label="Završeni servisi" value={String(closedCount)} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.recentSection}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.recentSectionLabel}>NEDAVNI NALOZI</Text>
-            <TouchableOpacity onPress={handleShowAllRecent} activeOpacity={0.7}>
-              <Text style={styles.recentHeaderLink}>Prikaži sve →</Text>
-            </TouchableOpacity>
-          </View>
-
-          {recentOrders.length === 0 ? (
-            <Text style={styles.recentEmptyText}>
-              Nema nedavnih naloga za prikaz.
-            </Text>
-          ) : (
-            recentOrders.map((order) => (
-              <TouchableOpacity
-                key={order.id || order.serviceOrderID || order.createdAt}
-                style={styles.recentItem}
-                activeOpacity={0.8}
-                onPress={() => handleRecentOrderPress(order)}
-              >
-                <View style={styles.recentItemRow}>
-                  <View style={styles.recentStatusDot} />
-                  <View style={styles.recentItemLeft}>
-                    <Text style={styles.recentItemType}>
-                      {getRecentOrderTitle(order)}
-                    </Text>
-                    <Text style={styles.recentItemSubtitle}>
-                      {formatOrderSubtitle(order)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.recentItemStatus}>
-                  <Text style={styles.recentItemStatusText}>
-                    {getOrderStatusText(order)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+      ) : (
+        <FlatList
+          data={recentOrders}
+          keyExtractor={(item) =>
+            String(item.id || item.serviceOrderID || item.createdAt)
+          }
+          renderItem={({ item }) => (
+            <OrderCard order={item} onPress={handleOrderPress} />
           )}
-        </View>
+          ListHeaderComponent={<ListHeader />}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Nema naloga za prikaz.</Text>
+          }
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleOdjava}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.logoutText}>Odjava</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={() => navigation.navigate("Login")}
+        activeOpacity={0.75}
+      >
+        <Text style={styles.logoutText}>Odjava</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

@@ -1,52 +1,61 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet } from "react-native";
+
+export const COLORS = {
+  bg:      "#1a3a3f",
+  panel:   "#1e5c6b",
+  accent:  "#2ab8c4",
+  white:   "#f0f4f6",
+  muted:   "#8fb3bf",
+  success: "#3dba7a",
+  warning: "#2ab8c4",
+  danger:  "#e05a5a",
+};
 
 export default StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 20,
-    backgroundColor: '#446977' 
-},
-  logo: { 
+    backgroundColor: COLORS.bg,
+  },
+  logo: {
     width: 300,
     height: 100,
-    marginBottom: 20,
-    alignSelf: 'center',
-    resizeMode: 'contain',
+    marginBottom: 50,
+    alignSelf: "center",
+    resizeMode: "contain",
     marginTop: -100,
-    marginBottom: 50 
-},
-  input: { 
-    borderWidth: 2,
-    borderColor: '#ffffff',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
     padding: 15,
     marginBottom: 15,
-    borderRadius: 15,
-    textDecorationColor: '#ffffff',
-    color: '#ffffff',
-    placeholderTextColor: '#ffffff',
-    backgroundColor: '#7aa7b8',
+    borderRadius: 14,
+    color: COLORS.white,
+    backgroundColor: COLORS.panel,
+    fontSize: 14,
   },
-  error: { 
-    color: '#ff3232',
-    marginBottom: 10 
-},
-  inputError: { 
-    borderColor: '#ff3232',
-    borderWidth: 2 
-},
+  error: {
+    color: COLORS.danger,
+    marginBottom: 10,
+  },
+  inputError: {
+    borderColor: COLORS.danger,
+    borderWidth: 1,
+  },
   button: {
-    backgroundColor: '#1ca8b2',
+    backgroundColor: COLORS.accent,
     padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
+    borderRadius: 12,
+    alignItems: "center",
     marginTop: 15,
-    width: '70%',
-    alignSelf: 'center',
-    },
+    width: "70%",
+    alignSelf: "center",
+  },
   buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: COLORS.white,
+    fontWeight: "800",
     fontSize: 16,
-    },
+  },
 });

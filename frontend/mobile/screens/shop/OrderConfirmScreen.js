@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { StackActions } from '@react-navigation/native';
 import styles, { COLORS } from '../styles/shopStyles';
 import { getOrderDetails } from '../../services/api';
@@ -20,11 +20,17 @@ export default function OrderConfirmScreen({ route, navigation }) {
     getOrderDetails(orderID).then(setOrder).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={COLORS.white} /></View>;
+  if (loading) return (
+    <SafeAreaView style={[styles.container, { justifyContent: 'center' }]}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <ActivityIndicator size="large" color={COLORS.white} />
+    </SafeAreaView>
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ padding: 20, alignItems: 'center' }}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 32, alignItems: 'center' }}>
         <View style={localStyles.iconCircle}>
           <Text style={localStyles.checkmark}>✓</Text>
         </View>
@@ -33,7 +39,7 @@ export default function OrderConfirmScreen({ route, navigation }) {
 
         <View style={[styles.card, { width: '100%', marginBottom: 12 }]}>
           <DetailRow label="Broj narudžbe" value={`#ORD-${String(getDisplayOrderNumber(order, orderID)).padStart(4, '0')}`} />
-          <DetailRow label="Status" value="Na čekanju" valueColor={COLORS.success} />
+          <DetailRow label="Status" value="Na čekanju" valueColor={COLORS.warning} />
           <DetailRow label="Datum" value={new Date(order.submittedAt).toLocaleDateString('bs-BA')} />
           <DetailRow label="Artikli" value={`${order.items.length} vrste, ${order.items.reduce((s, i) => s + i.quantity, 0)} kom`} />
           <DetailRow label="Ukupno" value={`${Number(order.total).toFixed(2)} KM`} last />
@@ -57,7 +63,7 @@ export default function OrderConfirmScreen({ route, navigation }) {
           <Text style={localStyles.outlineBtnText}>Pogledaj sve narudžbe</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -71,10 +77,10 @@ function DetailRow({ label, value, valueColor, last }) {
 }
 
 const localStyles = StyleSheet.create({
-  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(76,175,80,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 14, borderWidth: 2, borderColor: '#4caf50' },
-  checkmark: { fontSize: 30, color: '#4caf50' },
+  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(61,186,122,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 18, borderWidth: 2, borderColor: COLORS.success },
+  checkmark: { fontSize: 32, color: COLORS.success },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 },
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  outlineBtn: { borderWidth: 2, borderColor: COLORS.white, borderRadius: 10, padding: 13, width: '70%', alignItems: 'center' },
+  outlineBtn: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 12, padding: 13, width: '70%', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
   outlineBtnText: { color: COLORS.white, fontWeight: 'bold', fontSize: 14 },
 });

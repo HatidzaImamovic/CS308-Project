@@ -15,14 +15,15 @@ import {
   Image,
 } from "react-native";
 import { createUser } from "../services/api";
+import { COLORS } from "./styles/loginScreen";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLES = ["menadžer", "serviser", "skladištar"];
 
 const ROLE_COLORS = {
-  "menadžer":   "#4EA8BE",
-  "serviser":   "#5CB85C",
-  "skladištar": "#E8A838",
+  "menadžer":   COLORS.accent,
+  "serviser":   COLORS.success,
+  "skladištar": COLORS.muted,
 };
 
 const ROLE_LABELS = {
@@ -113,6 +114,41 @@ export default function CreateUserScreen({ route, navigation }) {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: null }));
   };
 
+  // Password handlers: when hidden, reconcile bullet input against stored value
+  const handlePasswordChange = (field, currentValue, showField) => (newText) => {
+    if (showField) {
+      // Visible — just use value directly
+      set(field)(newText);
+      return;
+    }
+    // Hidden — bullets were displayed; figure out what changed
+    const oldLen = currentValue.length;
+    const newLen = newText.length;
+    if (newLen > oldLen) {
+      // Characters added — append the new non-bullet chars
+      const added = newText.slice(oldLen).replace(/•/g, "");
+      set(field)(currentValue + added);
+    } else {
+      // Characters deleted
+      set(field)(currentValue.slice(0, newLen));
+    }
+  };
+
+  const isDirty = Object.values(form).some((v) => v.trim?.() !== "" || v !== "");
+
+  const handleBack = () => {
+    const dirty = Object.keys(EMPTY).some((k) => form[k] !== EMPTY[k]);
+    if (!dirty) { navigation.goBack(); return; }
+    Alert.alert(
+      "Odustani od kreiranja?",
+      "Uneseni podaci će biti izgubljeni.",
+      [
+        { text: "Ostani", style: "cancel" },
+        { text: "Napusti", style: "destructive", onPress: () => navigation.goBack() },
+      ]
+    );
+  };
+
   const handleCreate = async () => {
     const errs = validateForm(form);
     if (Object.keys(errs).length) { setErrors(errs); return; }
@@ -151,13 +187,13 @@ export default function CreateUserScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#446977" />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
           activeOpacity={0.75}
         >
           <Text style={styles.backBtnText}>← Natrag</Text>
@@ -254,20 +290,22 @@ export default function CreateUserScreen({ route, navigation }) {
               <View style={styles.passwordRow}>
                 <TextInput
                   style={[styles.input, styles.passwordInput, !!errors.password && styles.inputError]}
-                  value={form.password}
-                  onChangeText={set("password")}
+                  value={showPass ? form.password : form.password.replace(/./g, "•")}
+                  onChangeText={handlePasswordChange("password", form.password, showPass)}
                   placeholder="min. 6 znakova"
                   placeholderTextColor="rgba(255,255,255,0.4)"
-                  secureTextEntry={!showPass}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="off"
+                  keyboardType={showPass ? "default" : "default"}
+                  caretHidden={!showPass}
                 />
                 <TouchableOpacity
                   style={styles.eyeBtn}
                   onPress={() => setShowPass((v) => !v)}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.eyeText}>{showPass ? "🙈" : "👁️"}</Text>
+                  <Text style={styles.eyeText}>{showPass ? "Sakrij" : "Prikaži"}</Text>
                 </TouchableOpacity>
               </View>
             </Field>
@@ -277,20 +315,21 @@ export default function CreateUserScreen({ route, navigation }) {
               <View style={styles.passwordRow}>
                 <TextInput
                   style={[styles.input, styles.passwordInput, !!errors.confirmPassword && styles.inputError]}
-                  value={form.confirmPassword}
-                  onChangeText={set("confirmPassword")}
+                  value={showConfirm ? form.confirmPassword : form.confirmPassword.replace(/./g, "•")}
+                  onChangeText={handlePasswordChange("confirmPassword", form.confirmPassword, showConfirm)}
                   placeholder="Ponovi lozinku"
                   placeholderTextColor="rgba(255,255,255,0.4)"
-                  secureTextEntry={!showConfirm}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="off"
+                  caretHidden={!showConfirm}
                 />
                 <TouchableOpacity
                   style={styles.eyeBtn}
                   onPress={() => setShowConfirm((v) => !v)}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.eyeText}>{showConfirm ? "🙈" : "👁️"}</Text>
+                  <Text style={styles.eyeText}>{showConfirm ? "Sakrij" : "Prikaži"}</Text>
                 </TouchableOpacity>
               </View>
             </Field>
@@ -338,14 +377,6 @@ export default function CreateUserScreen({ route, navigation }) {
             }
           </TouchableOpacity>
 
-          {/* Cancel */}
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.cancelBtnText}>Odustani</Text>
-          </TouchableOpacity>
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -355,35 +386,35 @@ export default function CreateUserScreen({ route, navigation }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#446977" },
+  safeArea: { flex: 1, backgroundColor: COLORS.bg },
 
   // Header
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    backgroundColor: "#446977", paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: "#7aa7b8",
+    backgroundColor: COLORS.bg, paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: COLORS.panel,
   },
   backBtn:     { paddingVertical: 4, paddingRight: 12 },
-  backBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "600" },
+  backBtnText: { color: COLORS.white, fontSize: 15, fontWeight: "600" },
   headerIconBox: {
     width: 60, height: 60, borderRadius: 12,
-    backgroundColor: "#446977", alignItems: "center", justifyContent: "center",
+    backgroundColor: COLORS.bg, alignItems: "center", justifyContent: "center",
   },
   logoImage: { width: 200, height: 100, resizeMode: "contain", marginRight: 115 },
 
   // Scroll
-  scrollView:    { flex: 1, backgroundColor: "#446977" },
+  scrollView:    { flex: 1, backgroundColor: COLORS.bg },
   scrollContent: { padding: 20, paddingBottom: 40 },
 
   // Welcome
   welcomeSection:  { marginBottom: 24, marginTop: 8 },
-  welcomeTitle:    { color: "#ffffff", fontSize: 24, fontWeight: "700", letterSpacing: 0.2 },
-  welcomeSubtitle: { color: "#ffffff", fontSize: 14, marginTop: 4 },
+  welcomeTitle:    { color: COLORS.white, fontSize: 24, fontWeight: "700", letterSpacing: 0.2 },
+  welcomeSubtitle: { color: COLORS.white, fontSize: 14, marginTop: 4 },
 
   // Form card
   formCard: {
-    backgroundColor: "#7aa7b8", borderRadius: 14,
-    padding: 18, borderWidth: 1, borderColor: "#ffffff", marginBottom: 16,
+    backgroundColor: COLORS.panel, borderRadius: 14,
+    padding: 18, borderWidth: 1, borderColor: COLORS.white, marginBottom: 16,
   },
 
   // Fields
@@ -393,23 +424,24 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: "700",
     marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6,
   },
-  fieldError: { color: "#ffb3b3", fontSize: 11, marginTop: 4 },
+  fieldError: { color: "rgba(224,90,90,0.6)", fontSize: 11, marginTop: 4 },
   input: {
     backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 11,
-    color: "#ffffff", fontSize: 14,
+    color: COLORS.white, fontSize: 14,
     borderWidth: 1.5, borderColor: "rgba(255,255,255,0.3)",
   },
-  inputError:    { borderColor: "#ffb3b3" },
+  inputError:    { borderColor: "rgba(224,90,90,0.6)" },
   passwordRow:   { flexDirection: "row", alignItems: "center" },
   passwordInput: { flex: 1 },
   eyeBtn: {
-    width: 42, height: 42, borderRadius: 10, marginLeft: 8,
+    height: 42, borderRadius: 10, marginLeft: 8,
+    paddingHorizontal: 12,
     backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center", justifyContent: "center",
     borderWidth: 1.5, borderColor: "rgba(255,255,255,0.3)",
   },
-  eyeText: { fontSize: 16 },
+  eyeText: { fontSize: 13, color: COLORS.white, fontWeight: "600" },
 
   // Role chips
   roleRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
@@ -422,14 +454,9 @@ const styles = StyleSheet.create({
 
   // Buttons
   createBtn: {
-    backgroundColor: "#446977", borderRadius: 14, paddingVertical: 16,
-    alignItems: "center", borderWidth: 1, borderColor: "#ffffff", marginBottom: 12,
+    backgroundColor: COLORS.bg, borderRadius: 14, paddingVertical: 16,
+    alignItems: "center", borderWidth: 1, borderColor: COLORS.white, marginBottom: 12,
   },
-  createBtnText: { color: "#ffffff", fontSize: 15, fontWeight: "800" },
-  cancelBtn: {
-    borderRadius: 14, paddingVertical: 16,
-    alignItems: "center", borderWidth: 1, borderColor: "#ffffff",
-    backgroundColor: "#7aa7b8",
-  },
-  cancelBtnText: { color: "#e05a5a", fontSize: 15, fontWeight: "600" },
+  createBtnText: { color: COLORS.white, fontSize: 15, fontWeight: "800" },
+
 });

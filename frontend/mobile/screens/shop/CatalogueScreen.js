@@ -98,8 +98,8 @@ export default function CatalogueScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle}>Katalog dijelova</Text>
         <View style={styles.headerActions}>
@@ -107,13 +107,13 @@ export default function CatalogueScreen({ route, navigation }) {
             style={styles.headerIconButton}
             onPress={() => navigation.navigate('OrderHistory', { user })}
           >
-            <Text style={styles.headerIconText}>☰</Text>
+            <Text style={styles.headerIconText}>≡</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.headerIconButton}
+            style={styles.cartButton}
             onPress={() => navigation.navigate('Cart', { user })}
           >
-            <Text style={styles.headerIconText}>🛒</Text>
+            <Text style={styles.cartButtonText}>Korpa</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -143,7 +143,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.white,
+    borderColor: 'rgba(255,255,255,0.10)',
     padding: 16,
     marginHorizontal: 20,
     marginBottom: 14,
