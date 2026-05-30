@@ -150,8 +150,8 @@ export default function CartScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle}>Korpa</Text>
         <View style={{ width: 44 }} />
@@ -208,7 +208,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.white,
+    borderColor: 'rgba(255,255,255,0.10)',
     padding: 16,
     marginHorizontal: 20,
     marginBottom: 14,

@@ -1,14 +1,25 @@
-import { StyleSheet, Dimensions } from "react-native";
+import { StyleSheet } from "react-native";
 
-const { width } = Dimensions.get("window");
+export const COLORS = {
+  bg:      "#1a3a3f",
+  panel:   "#1e5c6b",
+  accent:  "#2ab8c4",
+  white:   "#f0f4f6",
+  muted:   "#8fb3bf",
+  success: "#3dba7a",
+  warning: "#2ab8c4",
+  danger:  "#e05a5a",
+};
 
 export default StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#446977",
+    backgroundColor: COLORS.bg,
   },
+
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: "#446977",
+    backgroundColor: COLORS.bg,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -18,18 +29,20 @@ export default StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   backButtonText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 24,
     fontWeight: "700",
   },
   headerTitle: {
     flex: 1,
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 20,
     fontWeight: "800",
     textAlign: "center",
@@ -37,73 +50,70 @@ export default StyleSheet.create({
   headerSpacer: {
     width: 44,
   },
-  content: {
-    flex: 1,
-    backgroundColor: "#446977",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: "hidden",
-  },
+
+  // ── Filter bar ───────────────────────────────────────────────────────────────
   filterContainer: {
-    padding: 16,
-    backgroundColor: "#7aa7b8",
-    borderRadius: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: COLORS.bg,
   },
   searchInput: {
-    backgroundColor: "#446977",
+    backgroundColor: COLORS.panel,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 14,
-    color: "#ffffff",
+    color: COLORS.white,
     borderWidth: 1,
-    borderColor: "#ffffff",
-    placeholderTextColor: "#ffffff",
+    borderColor: "rgba(255,255,255,0.12)",
   },
   filterScroll: {
     marginTop: 12,
   },
   filterScrollContent: {
     flexDirection: "row",
-    alignItems: "center",
     paddingBottom: 4,
   },
   filterChip: {
-    paddingVertical: 10,
+    paddingVertical: 7,
     paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderColor: "rgba(255,255,255,0.12)",
     marginRight: 8,
   },
   filterChipActive: {
-    backgroundColor: "#1ca8b2",
-    borderColor: "#1ca8b2",
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
   },
   filterChipText: {
-    color: "#d4e2ea",
+    color: COLORS.muted,
     fontSize: 13,
     fontWeight: "600",
   },
   filterChipTextActive: {
-    color: "#ffffff",
+    color: COLORS.white,
+    fontWeight: "700",
   },
+  filterDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    marginLeft: 0,
+    marginRight: 8,
+    alignSelf: "center",
+  },
+
+  // ── Content ──────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 40,
   },
-  loadingText: {
-    fontSize: 16,
-    color: "#ffffff",
-  },
+  loadingText: { fontSize: 16, color: COLORS.muted },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -114,12 +124,12 @@ export default StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#ffffff",
+    color: COLORS.white,
     marginBottom: 10,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#bec5d5",
+    color: COLORS.muted,
     textAlign: "center",
   },
   errorContainer: {
@@ -131,18 +141,18 @@ export default StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: "#dc3545",
+    color: COLORS.danger,
     textAlign: "center",
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: "#1ca8b2",
+    backgroundColor: COLORS.accent,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
   },
   retryButtonText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -151,21 +161,15 @@ export default StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 120,
   },
+
+  // ── Order card ───────────────────────────────────────────────────────────────
   orderItem: {
-    backgroundColor: "#7aa7b8",
-    borderRadius: 18,
+    backgroundColor: COLORS.panel,
+    borderRadius: 16,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 5,
+    borderColor: "rgba(255,255,255,0.10)",
   },
   orderHeader: {
     flexDirection: "row",
@@ -176,59 +180,72 @@ export default StyleSheet.create({
   orderId: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#ffffff",
+    color: COLORS.white,
   },
-  orderStatus: {
-    fontSize: 12,
-    fontWeight: "700",
+  statusBadge: {
+    borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingVertical: 5,
+  },
+  pendingBadge: {
+    backgroundColor: "rgba(42,184,196,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(42,184,196,0.4)",
+  },
+  doneBadge: {
+    backgroundColor: "rgba(61,186,122,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(61,186,122,0.4)",
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.white,
   },
   orderType: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#ffffff",
+    color: COLORS.white,
     marginBottom: 6,
   },
   orderLocation: {
     fontSize: 14,
-    color: "#ffffff",
+    color: COLORS.muted,
     marginBottom: 6,
     lineHeight: 20,
   },
   orderDate: {
     fontSize: 12,
-    color: "#bec5d5",
+    color: COLORS.muted,
   },
   orderTotal: {
-    color: "#ffffff",
+    color: COLORS.accent,
     fontSize: 14,
     fontWeight: "800",
     marginTop: 8,
   },
+
+  // ── FAB ──────────────────────────────────────────────────────────────────────
   addButton: {
     position: "absolute",
     bottom: 28,
     right: 28,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#1ca8b2",
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: COLORS.accent,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
     elevation: 8,
   },
   addButtonText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 30,
-    fontWeight: "800",
+    fontWeight: "300",
+    lineHeight: 34,
   },
 });

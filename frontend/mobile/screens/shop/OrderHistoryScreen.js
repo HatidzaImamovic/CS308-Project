@@ -8,8 +8,8 @@ const getDisplayOrderNumber = (order) =>
   order.orderNumber || order.sparePartsOrderID;
 
 const STATUS = {
-  pending:   { label: 'Na čekanju', color: '#f59e0b', bg: 'rgba(245,158,11,0.2)' },
-  completed: { label: 'Završeno',   color: '#4caf50', bg: 'rgba(76,175,80,0.2)'  },
+  pending:   { label: 'Na čekanju', color: COLORS.warning, bg: 'rgba(42,184,196,0.15)'  },
+  completed: { label: 'Završeno',   color: COLORS.success, bg: 'rgba(61,186,122,0.15)'  },
 };
 
 export default function OrderHistoryScreen({ route, navigation }) {
@@ -68,8 +68,8 @@ export default function OrderHistoryScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle}>Moje narudžbe</Text>
         <View style={{ width: 44 }} />

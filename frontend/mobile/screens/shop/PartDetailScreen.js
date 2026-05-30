@@ -26,8 +26,8 @@ export default function PartDetailScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topbarTitle}>Detalji dijela</Text>
         <View style={{ width: 44 }} />

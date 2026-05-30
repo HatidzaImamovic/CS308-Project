@@ -61,12 +61,14 @@ export default function LoginScreen({ navigation }) {
       <TextInput
         style={[styles.input, error && styles.inputError]}
         placeholder="Ime korisnika"
+        placeholderTextColor="rgba(255,255,255,0.5)"
         value={username}
         onChangeText={setUsername}
       />
       <TextInput
         style={[styles.input, error && styles.inputError]}
         placeholder="Šifra"
+        placeholderTextColor="rgba(255,255,255,0.5)"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
