@@ -5,17 +5,17 @@ import LoginScreen from "./screens/LoginScreen";
 import HomeScreen from "./screens/HomeScreen";
 import ServiceOrderScreen from "./screens/ServiceOrderScreen";
 import CreateServiceOrderScreen from "./screens/CreateServiceOrderScreen";
-import FinancialScreen from './screens/FinancialScreen';
-import CatalogueScreen from './screens/shop/CatalogueScreen';
-import PartDetailScreen from './screens/shop/PartDetailScreen';
-import CartScreen from './screens/shop/CartScreen';
-import OrderConfirmScreen from './screens/shop/OrderConfirmScreen';
-import OrderHistoryScreen from './screens/shop/OrderHistoryScreen';
-import ManagerHome from './screens/ManagerHome';
-import createUserScreen from './screens/createUserScreen';
-import AllServiceOrdersScreen from './screens/AllServiceOrdersScreen';
-import InventoryScreen from './screens/InventoryScreen';
-import WarehouseHome from './screens/WarehouseHome';
+import FinancialScreen from "./screens/FinancialScreen";
+import CatalogueScreen from "./screens/shop/CatalogueScreen";
+import PartDetailScreen from "./screens/shop/PartDetailScreen";
+import CartScreen from "./screens/shop/CartScreen";
+import OrderConfirmScreen from "./screens/shop/OrderConfirmScreen";
+import OrderHistoryScreen from "./screens/shop/OrderHistoryScreen";
+import ManagerHome from "./screens/ManagerHome";
+import createUserScreen from "./screens/createUserScreen";
+import AllServiceOrdersScreen from "./screens/AllServiceOrdersScreen";
+import InventoryScreen from "./screens/InventoryScreen";
+import WarehouseHome from "./screens/WarehouseHome";
 
 const Stack = createNativeStackNavigator();
 
@@ -27,22 +27,17 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ManagerHome" component={ManagerHome} />
         <Stack.Screen name="WarehouseHome" component={WarehouseHome} />
-      <Stack.Screen name="ServiceOrder" component={ServiceOrderScreen} />
-      <Stack.Screen
-        name="CreateServiceOrder"
-        component={CreateServiceOrderScreen}
-      />
-      <Stack.Screen name="Financije" component={FinancialScreen} />
-
-      <Stack.Screen name="Catalogue" component={CatalogueScreen} />
-      <Stack.Screen name="PartDetail" component={PartDetailScreen} />
-      <Stack.Screen name="Cart" component={CartScreen} />
-      <Stack.Screen name="OrderConfirm" component={OrderConfirmScreen} />
-      <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />    
-      <Stack.Screen name="CreateUser" component={createUserScreen} /> 
-      <Stack.Screen name="AllServiceOrders" component={AllServiceOrdersScreen} />
-      <Stack.Screen name="Inventory" component={InventoryScreen} />
-
+        <Stack.Screen name="ServiceOrder" component={ServiceOrderScreen} />
+        <Stack.Screen name="CreateServiceOrder" component={CreateServiceOrderScreen} />
+        <Stack.Screen name="Financije" component={FinancialScreen} />
+        <Stack.Screen name="Catalogue" component={CatalogueScreen} />
+        <Stack.Screen name="PartDetail" component={PartDetailScreen} />
+        <Stack.Screen name="Cart" component={CartScreen} />
+        <Stack.Screen name="OrderConfirm" component={OrderConfirmScreen} />
+        <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+        <Stack.Screen name="CreateUser" component={createUserScreen} />
+        <Stack.Screen name="AllServiceOrders" component={AllServiceOrdersScreen} />
+        <Stack.Screen name="Inventory" component={InventoryScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
