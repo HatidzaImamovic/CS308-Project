@@ -290,10 +290,20 @@ const UserCard = ({ user, onEdit, onDelete }) => {
         <RoleBadge role={user.role} />
       </View>
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.editBtn} onPress={() => onEdit(user)} activeOpacity={0.75}>
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => onEdit(user)}
+          activeOpacity={0.75}
+          accessibilityLabel="Uredi korisnika"
+        >
           <Text style={styles.editBtnText}>Uredi</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(user)} activeOpacity={0.75}>
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={() => onDelete(user)}
+          activeOpacity={0.75}
+          accessibilityLabel="Obriši korisnika"
+        >
           <Text style={styles.deleteBtnText}>Briši</Text>
         </TouchableOpacity>
       </View>

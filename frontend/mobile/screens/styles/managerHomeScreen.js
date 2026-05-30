@@ -147,17 +147,17 @@ export default StyleSheet.create({
   // ── Edit / delete buttons ────────────────────────────────────────────────────
   cardActions:   { flexDirection: "column", gap: 6, marginLeft: 8 },
   editBtn: {
-    width: 36, height: 36, borderRadius: 8,
+    width: 58, height: 30, borderRadius: 8,
     backgroundColor: "rgba(255,255,255,0.10)",
     alignItems: "center", justifyContent: "center",
   },
-  editBtnText:   { fontSize: 13, color: COLORS.white, fontWeight: "700" },
+  editBtnText:   { fontSize: 11, color: COLORS.white, fontWeight: "800" },
   deleteBtn: {
-    width: 36, height: 36, borderRadius: 8,
+    width: 58, height: 30, borderRadius: 8,
     backgroundColor: "rgba(224,90,90,0.15)",
     alignItems: "center", justifyContent: "center",
   },
-  deleteBtnText: { fontSize: 13, color: COLORS.danger, fontWeight: "700" },
+  deleteBtnText: { fontSize: 11, color: COLORS.danger, fontWeight: "800" },
 
   // ── Role badge ───────────────────────────────────────────────────────────────
   roleBadge: {

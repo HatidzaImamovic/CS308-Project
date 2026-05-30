@@ -68,8 +68,14 @@ export default StyleSheet.create({
   statCardsRow: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 10,
+    marginTop: 0,
     marginBottom: 0,
+  },
+  quickOverviewHeader: {
+    alignSelf: "flex-start",
+    marginTop: 12,
+    marginBottom: 8,
+    paddingVertical: 4,
   },
   statCard: {
     flex: 1,

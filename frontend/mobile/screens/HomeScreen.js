@@ -296,6 +296,14 @@ export default function HomeScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
+      <TouchableOpacity
+        style={styles.quickOverviewHeader}
+        onPress={() => navigation.navigate("ServiceOrder", { user })}
+        activeOpacity={0.75}
+      >
+        <Text style={styles.sectionLabel}>BRZI PREGLED</Text>
+      </TouchableOpacity>
+
       {/* Stat cards row — matches manager layout */}
       <View style={styles.statCardsRow}>
         <StatCard label="Otvoreni" value={String(openCount)} />
