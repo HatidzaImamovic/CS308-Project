@@ -1,11 +1,113 @@
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import config from "../config";
 
 const API_URL = config.API_URL;
+const AUTH_TOKEN_KEY = "CS308_PROJECT_AUTH_TOKEN";
+const USER_SESSION_KEY = "CS308_PROJECT_USER_SESSION";
+const DRAFTS_PREFIX = "SERVICE_ORDER_DRAFTS_";
+
+export const getAuthToken = async () => {
+  try {
+    return await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const saveAuthToken = async (token) => {
+  try {
+    await SecureStore.setItemAsync(AUTH_TOKEN_KEY, token);
+  } catch (err) {
+    console.warn("Failed to save auth token", err);
+  }
+};
+
+export const clearAuthToken = async () => {
+  try {
+    await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+  } catch (err) {
+    console.warn("Failed to clear auth token", err);
+  }
+};
+
+export const saveUserSession = async (user) => {
+  try {
+    await SecureStore.setItemAsync(USER_SESSION_KEY, JSON.stringify(user));
+  } catch (err) {
+    console.warn("Failed to save user session", err);
+  }
+};
+
+export const getUserSession = async () => {
+  try {
+    const value = await SecureStore.getItemAsync(USER_SESSION_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const clearUserSession = async () => {
+  try {
+    await SecureStore.deleteItemAsync(USER_SESSION_KEY);
+  } catch (err) {
+    console.warn("Failed to clear user session", err);
+  }
+};
+
+const getDraftsStorageKey = (userId) => `${DRAFTS_PREFIX}${userId}`;
+
+export const getDrafts = async (userId) => {
+  try {
+    const key = getDraftsStorageKey(userId);
+    const secureValue = await SecureStore.getItemAsync(key);
+    if (secureValue) {
+      return JSON.parse(secureValue);
+    }
+
+    const legacy = await AsyncStorage.getItem(key);
+    if (legacy) {
+      await SecureStore.setItemAsync(key, legacy);
+      await AsyncStorage.removeItem(key);
+      return JSON.parse(legacy);
+    }
+  } catch (err) {
+    console.warn("Failed to load drafts", err);
+  }
+  return [];
+};
+
+export const saveDrafts = async (userId, drafts) => {
+  try {
+    const key = getDraftsStorageKey(userId);
+    await SecureStore.setItemAsync(key, JSON.stringify(drafts));
+  } catch (err) {
+    console.warn("Failed to save drafts", err);
+  }
+};
+
+export const removeDraftById = async (userId, draftId) => {
+  try {
+    const drafts = await getDrafts(userId);
+    const remaining = drafts.filter((draft) => String(draft.id) !== String(draftId));
+    await saveDrafts(userId, remaining);
+  } catch (err) {
+    console.warn("Failed to remove draft", err);
+  }
+};
 
 // ─── HELPER ────────────────────────────────────────────────
 const request = async (endpoint, options = {}) => {
+  const token = await getAuthToken();
+  const headers = { "Content-Type": "application/json" };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_URL}${endpoint}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...options,
   });
   const data = await res.json().catch(() => null);
@@ -28,6 +130,10 @@ export const getFinancialRecords = (userID) => request(`/financial/${userID}`);
 
 // ─── AUTH ──────────────────────────────────────────────────
 export const login = (username, password) => request("/login", { method: "POST", body: JSON.stringify({ username, password }) });
+export const logout = async () => {
+  await clearAuthToken();
+  await clearUserSession();
+};
 
 // ─── SHOP ──────────────────────────────────────────────────
 export const getParts = () => request("/spareparts");

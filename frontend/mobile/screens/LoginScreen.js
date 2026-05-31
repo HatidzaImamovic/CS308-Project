@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import styles from "./styles/loginScreen";
-import config from "../config";
+import { login, saveAuthToken, saveUserSession } from "../services/api";
 
 export default function LoginScreen({ navigation }) {
   const [username, setUsername] = useState("");
@@ -23,34 +23,32 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        const role = data.user?.role?.toString().toLowerCase();
-        const isManager =
-          role === "manager" ||
-          role === "menadžer" ||
-          role === "menadÅ¾er" ||
-          /^mn/i.test(data.user?.code || data.user?.username || "");
-        const isWarehouse =
-          role === "warehouse" ||
-          role === "skladištar" ||
-          role === "skladiÅ¡tar";
-
-        navigation.navigate(
-          isManager ? "ManagerHome" : isWarehouse ? "WarehouseHome" : "Home",
-          { user: data.user }
-        );
-      } else {
-        setError(data.message || "Pogrešni podaci za prijavu");
+      const data = await login(username, password);
+      if (!data || !data.user || !data.token) {
+        setError("Pogrešni podaci za prijavu");
+        return;
       }
+
+      await saveAuthToken(data.token);
+      await saveUserSession(data.user);
+
+      const role = data.user?.role?.toString().toLowerCase();
+      const isManager =
+        role === "manager" ||
+        role === "menadžer" ||
+        role === "menadzer" ||
+        /^mn/i.test(data.user?.code || data.user?.username || "");
+      const isWarehouse =
+        role === "warehouse" ||
+        role === "skladištar" ||
+        role === "skladiÅ¡tar";
+
+      navigation.navigate(
+        isManager ? "ManagerHome" : isWarehouse ? "WarehouseHome" : "Home",
+        { user: data.user }
+      );
     } catch (err) {
-      setError("Could not connect to server");
+      setError(err.message || "Could not connect to server");
     }
   };
 

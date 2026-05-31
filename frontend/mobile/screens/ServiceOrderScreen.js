@@ -11,11 +11,12 @@ import {
   TextInput,
   ScrollView,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   getServiceOrders,
   deleteServiceOrder,
+  getDrafts,
+  removeDraftById,
 } from "../services/api";
 import styles, { COLORS } from "./styles/serviceOrderScreen";
 
@@ -121,8 +122,8 @@ export default function ServiceOrderScreen({ route, navigation }) {
 
   const loadDraftOrders = async (userId) => {
     try {
-      const draftJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
-      setDraftOrders(draftJson ? JSON.parse(draftJson) : []);
+      const drafts = await getDrafts(userId);
+      setDraftOrders(drafts);
     } catch (err) {
       console.error("Error loading draft orders:", err);
       setDraftOrders([]);
@@ -214,14 +215,7 @@ export default function ServiceOrderScreen({ route, navigation }) {
           onPress: async () => {
             try {
               const userId = user?.id || user?.userID;
-              // remove draft locally from AsyncStorage
-              const draftKey = DRAFTS_STORAGE_KEY(userId);
-              const draftJson = await AsyncStorage.getItem(draftKey);
-              const drafts = draftJson ? JSON.parse(draftJson) : [];
-              const updated = drafts.filter(
-                (d) => String(d.id) !== String(order.id),
-              );
-              await AsyncStorage.setItem(draftKey, JSON.stringify(updated));
+              await removeDraftById(userId, order.id);
               await loadDraftOrders(userId);
             } catch (err) {
               console.error("Error deleting draft:", err);

@@ -11,12 +11,15 @@ import {
   Modal,
   FlatList,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createServiceOrder,
   getSpareParts,
   updateServiceOrder,
+  getDrafts,
+  saveDrafts,
+  removeDraftById,
 } from "../services/api";
+import config from "../config";
 import styles from "./styles/createServiceOrderScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
@@ -178,9 +181,7 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
   const saveDraftData = async (userId, currentFormData, currentDraftId) => {
     if (!userId || !hasDraftData()) return null;
 
-    const draftKey = DRAFTS_STORAGE_KEY(userId);
-    const draftJson = await AsyncStorage.getItem(draftKey);
-    const existingDrafts = draftJson ? JSON.parse(draftJson) : [];
+    const existingDrafts = await getDrafts(userId);
     const newDraftId = currentDraftId
       ? String(currentDraftId)
       : Date.now().toString();
@@ -200,7 +201,7 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
         (draft) => String(draft.id) !== String(newDraftId),
       ),
     ];
-    await AsyncStorage.setItem(draftKey, JSON.stringify(updatedDrafts));
+    await saveDrafts(userId, updatedDrafts);
     setDraftId(String(newDraftId));
     return String(newDraftId);
   };
@@ -324,15 +325,7 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
 
   const removeDraft = async (userId, id) => {
     try {
-      const draftJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
-      const drafts = draftJson ? JSON.parse(draftJson) : [];
-      const updatedDrafts = drafts.filter(
-        (draft) => String(draft.id) !== String(id),
-      );
-      await AsyncStorage.setItem(
-        DRAFTS_STORAGE_KEY(userId),
-        JSON.stringify(updatedDrafts),
-      );
+      await removeDraftById(userId, id);
     } catch (err) {
       console.error("Error removing draft:", err);
     }
@@ -369,6 +362,47 @@ export default function CreateServiceOrderScreen({ route, navigation }) {
       ]);
     }
   };
+
+  const syncDrafts = async () => {
+    const userId = user?.id || user?.userID;
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`${config.API_URL}/test`);
+      if (!response.ok) return;
+      const drafts = await getDrafts(userId);
+      if (!drafts.length) return;
+
+      for (const draft of drafts) {
+        try {
+          const orderData = {
+            ...draft,
+            spareParts: draft.spareParts || [],
+            userID: userId,
+            status: 1,
+          };
+          await createServiceOrder(orderData);
+          await removeDraftById(userId, draft.id);
+        } catch (syncError) {
+          console.warn("Draft sync failed", syncError);
+        }
+      }
+    } catch (err) {
+      // offline or not ready
+    }
+  };
+
+  useEffect(() => {
+    const userId = user?.id || user?.userID;
+    if (!userId) return;
+
+    const intervalId = setInterval(syncDrafts, 5000);
+    syncDrafts();
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user]);
 
   useEffect(() => {
     const userId = user?.id || user?.userID;

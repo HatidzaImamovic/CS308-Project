@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,9 +11,14 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { getServiceOrders } from "../services/api";
+import {
+  getServiceOrders,
+  getDrafts,
+  createServiceOrder,
+  removeDraftById,
+} from "../services/api";
+import config from "../config";
 import styles, { COLORS } from "./styles/homeScreen";
 
 const DRAFTS_STORAGE_KEY = (userId) => `SERVICE_ORDER_DRAFTS_${userId}`;
@@ -203,8 +208,7 @@ export default function HomeScreen({ route, navigation }) {
 
     try {
       const orders     = await getServiceOrders(userId);
-      const draftsJson = await AsyncStorage.getItem(DRAFTS_STORAGE_KEY(userId));
-      const drafts     = draftsJson ? JSON.parse(draftsJson) : [];
+      const drafts     = await getDrafts(userId);
 
       const draftOrders   = drafts.map((d) => ({ ...d, isDraft: true }));
       const backendOrders = orders.map((o) => ({ ...o, isDraft: false }));
@@ -236,6 +240,43 @@ export default function HomeScreen({ route, navigation }) {
       loadOrders();
     }, [loadOrders])
   );
+
+  useEffect(() => {
+    let interval;
+    const syncDrafts = async () => {
+      const userId = user?.id || user?.userID;
+      if (!userId) return;
+      try {
+        const response = await fetch(`${config.API_URL}/test`);
+        if (!response.ok) return;
+        const drafts = await getDrafts(userId);
+        if (!drafts.length) return;
+
+        for (const draft of drafts) {
+          try {
+            await createServiceOrder({
+              ...draft,
+              spareParts: draft.spareParts || [],
+              userID: userId,
+              status: 1,
+            });
+            await removeDraftById(userId, draft.id);
+          } catch (err) {
+            console.warn("Draft sync failed", err);
+          }
+        }
+        loadOrders();
+      } catch {
+        // offline or not ready
+      }
+    };
+
+    syncDrafts();
+    interval = setInterval(syncDrafts, 5000);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user, loadOrders]);
 
   const handleRefresh = () => {
     setRefreshing(true);

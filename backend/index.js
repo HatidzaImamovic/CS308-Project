@@ -2,10 +2,66 @@ require("dotenv").config();
 const express = require("express");
 const bcrypt = require("bcrypt");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const db = require("./database");
 const app = express();
 
-app.use(cors());
+const JWT_SECRET = process.env.JWT_SECRET || "change_this_secret";
+const {
+  normalizeRole,
+  isManager,
+  ensureDefaultSpareParts,
+  ensureServiceOrderPartsTable,
+  normalizeSelectedParts,
+  loadAndValidateSelectedParts,
+  syncServiceOrderParts,
+  getNextUserOrderNumber,
+  findServiceOrder,
+} = require("./helpers");
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization || req.headers.Authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : authHeader;
+
+  if (!token) {
+    return res.status(401).json({ message: "Authorization token missing" });
+  }
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+};
+
+const allowRoles = (...roles) => (req, res, next) => {
+  const role = normalizeRole(req.user?.role);
+  if (roles.some((allowed) => normalizeRole(allowed) === role)) {
+    return next();
+  }
+  return res.status(403).json({ message: "Forbidden" });
+};
+
+const authorizeUserAccess = (req, res, next) => {
+  const { userID } = req.params;
+  const currentUserId = Number(req.user?.userID);
+  const requestedUserId = Number(userID);
+
+  if (Number.isNaN(requestedUserId)) {
+    return res.status(400).json({ message: "Invalid user ID" });
+  }
+
+  if (currentUserId === requestedUserId || isManager(req.user?.role)) {
+    return next();
+  }
+
+  return res.status(403).json({ message: "Forbidden" });
+};
+
+app.use(["/spareparts", "/serviceorders", "/financial", "/api", "/users"], authenticateToken);
 app.use(express.json());
 
 const SERVICE_PRICES = {
@@ -47,171 +103,6 @@ const DEFAULT_SPARE_PARTS = [
   },
 ];
 
-const ensureDefaultSpareParts = async (connection = db) => {
-  const [[countRow]] = await connection.query(
-    "SELECT COUNT(*) AS count FROM sparepart"
-  );
-
-  if (Number(countRow.count) > 0) return;
-
-  await connection.query(
-    "INSERT INTO sparepart (name, description, price, stock) VALUES ?",
-    [
-      DEFAULT_SPARE_PARTS.map((part) => [
-        part.name,
-        part.description,
-        part.price,
-        part.stock,
-      ]),
-    ]
-  );
-};
-
-const ensureServiceOrderPartsTable = async (connection = db) => {
-  await connection.query(
-    `CREATE TABLE IF NOT EXISTS serviceorderpart (
-      serviceOrderPartID INT AUTO_INCREMENT PRIMARY KEY,
-      serviceOrderID INT NOT NULL,
-      partID INT NOT NULL,
-      quantity INT NOT NULL,
-      unitPrice DECIMAL(10, 2) NOT NULL,
-      UNIQUE KEY unique_service_order_part (serviceOrderID, partID),
-      CONSTRAINT serviceorderpart_service_fk
-        FOREIGN KEY (serviceOrderID) REFERENCES serviceorder(serviceOrderID)
-        ON DELETE CASCADE,
-      CONSTRAINT serviceorderpart_part_fk
-        FOREIGN KEY (partID) REFERENCES sparepart(partID)
-    )`
-  );
-};
-
-const normalizeSelectedParts = (spareParts = []) => {
-  if (!Array.isArray(spareParts)) return [];
-
-  return spareParts
-    .map((part) => ({
-      partID: Number(part.partID),
-      quantity: Number(part.quantity),
-    }))
-    .filter(
-      (part) =>
-        Number.isInteger(part.partID) &&
-        part.partID > 0 &&
-        Number.isInteger(part.quantity) &&
-        part.quantity > 0
-    );
-};
-
-const loadAndValidateSelectedParts = async (selectedParts, oldPartsById = new Map()) => {
-  if (selectedParts.length === 0) {
-    return { parts: [], partsTotal: 0, partDescriptions: [] };
-  }
-
-  const [parts] = await db.query(
-    `SELECT partID, name, price, stock
-     FROM sparepart
-     WHERE partID IN (?)`,
-    [selectedParts.map((part) => part.partID)]
-  );
-
-  const partsById = new Map(parts.map((part) => [Number(part.partID), part]));
-  let partsTotal = 0;
-  const partDescriptions = [];
-
-  for (const selectedPart of selectedParts) {
-    const part = partsById.get(selectedPart.partID);
-
-    if (!part) {
-      const error = new Error("Odabrani rezervni dio nije pronađen");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const previousQuantity = oldPartsById.get(selectedPart.partID)?.quantity || 0;
-    const additionalQuantity = selectedPart.quantity - previousQuantity;
-
-    if (additionalQuantity > 0 && Number(part.stock) < additionalQuantity) {
-      const error = new Error(`Nema dovoljno zaliha za dio "${part.name}"`);
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const partTotal = Number(part.price) * selectedPart.quantity;
-    partsTotal += partTotal;
-    partDescriptions.push(
-      `${part.name} x${selectedPart.quantity} (${partTotal.toFixed(2)} KM)`
-    );
-  }
-
-  return { parts: selectedParts.map((selectedPart) => ({
-    ...selectedPart,
-    unitPrice: Number(partsById.get(selectedPart.partID).price),
-  })), partsTotal, partDescriptions };
-};
-
-const syncServiceOrderParts = async (serviceOrderID, selectedParts) => {
-  await ensureServiceOrderPartsTable();
-
-  const [oldParts] = await db.query(
-    "SELECT partID, quantity FROM serviceorderpart WHERE serviceOrderID = ?",
-    [serviceOrderID]
-  );
-  const oldPartsById = new Map(
-    oldParts.map((part) => [Number(part.partID), { quantity: Number(part.quantity) }])
-  );
-
-  const { parts, partsTotal, partDescriptions } =
-    await loadAndValidateSelectedParts(selectedParts, oldPartsById);
-  const newPartsById = new Map(
-    parts.map((part) => [Number(part.partID), part])
-  );
-
-  for (const oldPart of oldParts) {
-    const partID = Number(oldPart.partID);
-    const oldQuantity = Number(oldPart.quantity);
-    const newQuantity = newPartsById.get(partID)?.quantity || 0;
-    const delta = newQuantity - oldQuantity;
-
-    if (delta !== 0) {
-      await db.query("UPDATE sparepart SET stock = stock - ? WHERE partID = ?", [
-        delta,
-        partID,
-      ]);
-    }
-  }
-
-  for (const part of parts) {
-    if (!oldPartsById.has(part.partID)) {
-      await db.query("UPDATE sparepart SET stock = stock - ? WHERE partID = ?", [
-        part.quantity,
-        part.partID,
-      ]);
-    }
-  }
-
-  await db.query("DELETE FROM serviceorderpart WHERE serviceOrderID = ?", [
-    serviceOrderID,
-  ]);
-
-  for (const part of parts) {
-    await db.query(
-      "INSERT INTO serviceorderpart (serviceOrderID, partID, quantity, unitPrice) VALUES (?, ?, ?, ?)",
-      [serviceOrderID, part.partID, part.quantity, part.unitPrice]
-    );
-  }
-
-  return { partsTotal, partDescriptions };
-};
-
-const getNextUserOrderNumber = async (connection, tableName, userID) => {
-  const [[row]] = await connection.query(
-    `SELECT COALESCE(MAX(orderNumber), 0) + 1 AS nextOrderNumber FROM ${tableName} WHERE userID = ?`,
-    [userID]
-  );
-
-  return Number(row.nextOrderNumber) || 1;
-};
-
 // ─── TEST ─────────────────────────────────────────────────
 app.get("/test", (req, res) => {
   res.json({ message: "Backend is working!", timestamp: new Date() });
@@ -235,7 +126,16 @@ app.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, rows[0].password);
 
     if (isMatch) {
-      res.json({ user: rows[0] });
+      const token = jwt.sign(
+        {
+          userID: rows[0].userID,
+          role: rows[0].role,
+          username: rows[0].username,
+        },
+        JWT_SECRET,
+        { expiresIn: "8h" }
+      );
+      res.json({ user: rows[0], token });
     } else {
       res.status(401).json({ message: "Pogrešno korisničko ime ili lozinka" });
     }
@@ -263,6 +163,10 @@ app.get("/spareparts", async (req, res) => {
 
 // ─── SERVICE ORDERS ───────────────────────────────────────
 app.get("/serviceorders/:userID", async (req, res) => {
+  if (Number(req.user.userID) !== Number(req.params.userID) && !isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const [rows] = await db.query(
       `SELECT so.*, d.serialNumber, d.ownerName AS name, d.model AS location, d.installDate AS date, f.amount AS totalAmount
@@ -306,18 +210,6 @@ app.get("/serviceorders/:userID", async (req, res) => {
   }
 });
 
-const findServiceOrder = async (id) => {
-  const [[order]] = await db.query(
-    `SELECT *
-     FROM serviceorder
-     WHERE serviceOrderID = ?
-     LIMIT 1`,
-    [id]
-  );
-
-  return order;
-};
-
 app.post("/serviceorders", async (req, res) => {
   const {
     serviceType,
@@ -329,6 +221,10 @@ app.post("/serviceorders", async (req, res) => {
     status = 1,
     spareParts = [],
   } = req.body;
+
+  if (Number(req.user.userID) !== Number(userID) && !isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
   if (!serviceType || !serialNumber || !name || !location || !date || !userID) {
     return res.status(400).json({ message: "Nedostaju obavezni podaci" });
@@ -509,6 +405,10 @@ app.put("/serviceorders/:id", async (req, res) => {
       return res.status(404).json({ message: "Servisni nalog nije pronađen" });
     }
 
+    if (Number(existing.userID) !== Number(req.user.userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     let deviceID = existing.deviceID;
 
     if (serialNumber) {
@@ -630,6 +530,10 @@ app.put("/serviceorders/:id/status", async (req, res) => {
       return res.status(404).json({ message: "Servisni nalog nije pronađen" });
     }
 
+    if (Number(existing.userID) !== Number(req.user.userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     const [result] = await db.query(
       "UPDATE serviceorder SET status = ? WHERE serviceOrderID = ? LIMIT 1",
       [normalizedStatus, existing.serviceOrderID]
@@ -653,6 +557,10 @@ app.delete("/serviceorders/:id", async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ message: "Servisni nalog nije pronađen" });
+    }
+
+    if (Number(existing.userID) !== Number(req.user.userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
     await ensureServiceOrderPartsTable();
@@ -690,6 +598,10 @@ app.delete("/serviceorders/:id", async (req, res) => {
 app.delete("/serviceorders/user/:userID", async (req, res) => {
   const { userID } = req.params;
 
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const [result] = await db.query(
       "DELETE FROM serviceorder WHERE userID = ?",
@@ -707,6 +619,10 @@ app.delete("/serviceorders/user/:userID", async (req, res) => {
 
 // ─── FINANCIAL RECORDS ────────────────────────────────────
 app.get("/financial/:userID", async (req, res) => {
+  if (Number(req.user.userID) !== Number(req.params.userID) && !isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const userID = req.params.userID;
 
@@ -745,6 +661,10 @@ app.get("/financial/:userID", async (req, res) => {
 
 // ─── CART ─────────────────────────────────────────────────
 app.get("/api/cart/:userID", async (req, res) => {
+  if (Number(req.user.userID) !== Number(req.params.userID) && !isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const { userID } = req.params;
 
@@ -783,6 +703,10 @@ app.get("/api/cart/:userID", async (req, res) => {
 });
 
 app.post("/api/cart/:userID/items", async (req, res) => {
+  if (Number(req.user.userID) !== Number(req.params.userID) && !isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const { userID } = req.params;
     const { partID, quantity = 1 } = req.body;
@@ -847,6 +771,23 @@ app.post("/api/cart/:userID/items", async (req, res) => {
 app.put("/api/cart/items/:cartItemID", async (req, res) => {
   try {
     const { quantity } = req.body;
+    const cartItemId = Number(req.params.cartItemID);
+
+    const [[cartRow]] = await db.query(
+      `SELECT c.userID
+       FROM cartitem ci
+       JOIN cart c ON ci.cartID = c.cartID
+       WHERE ci.cartItemID = ?`,
+      [cartItemId]
+    );
+
+    if (!cartRow) {
+      return res.status(404).json({ error: "Cart item not found" });
+    }
+
+    if (Number(req.user.userID) !== Number(cartRow.userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
 
     if (!quantity || quantity < 1) {
       return res.status(400).json({ error: "Quantity must be at least 1" });
@@ -865,6 +806,23 @@ app.put("/api/cart/items/:cartItemID", async (req, res) => {
 
 app.delete("/api/cart/items/:cartItemID", async (req, res) => {
   try {
+    const cartItemId = Number(req.params.cartItemID);
+    const [[cartRow]] = await db.query(
+      `SELECT c.userID
+       FROM cartitem ci
+       JOIN cart c ON ci.cartID = c.cartID
+       WHERE ci.cartItemID = ?`,
+      [cartItemId]
+    );
+
+    if (!cartRow) {
+      return res.status(404).json({ error: "Cart item not found" });
+    }
+
+    if (Number(req.user.userID) !== Number(cartRow.userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     await db.query("DELETE FROM cartitem WHERE cartItemID = ?", [
       req.params.cartItemID,
     ]);
@@ -879,6 +837,10 @@ app.delete("/api/cart/items/:cartItemID", async (req, res) => {
 app.post("/api/orders", async (req, res) => {
   try {
     const { userID } = req.body;
+
+    if (Number(req.user.userID) !== Number(userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
 
     if (!userID) {
       return res.status(400).json({ error: "userID is required" });
@@ -952,6 +914,10 @@ app.post("/api/orders", async (req, res) => {
 });
 
 app.get("/api/orders/user/:userID", async (req, res) => {
+  if (Number(req.user.userID) !== Number(req.params.userID) && !isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const [orders] = await db.query(
       "SELECT sparePartsOrderID, orderNumber, status, submittedAt FROM sparepartsorder WHERE userID = ? AND status <> ? ORDER BY submittedAt DESC",
@@ -967,7 +933,7 @@ app.get("/api/orders/user/:userID", async (req, res) => {
 app.get("/api/orders/:orderID", async (req, res) => {
   try {
     const [orders] = await db.query(
-      "SELECT * FROM sparepartsorder WHERE sparePartsOrderID = ?",
+      "SELECT userID FROM sparepartsorder WHERE sparePartsOrderID = ?",
       [req.params.orderID]
     );
 
@@ -975,9 +941,22 @@ app.get("/api/orders/:orderID", async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
+    if (Number(req.user.userID) !== Number(orders[0].userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const [orderDetails] = await db.query(
+      "SELECT * FROM sparepartsorder WHERE sparePartsOrderID = ?",
+      [req.params.orderID]
+    );
+
+    if (orderDetails.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
     const [items] = await db.query(
       `SELECT oi.itemID, oi.quantity, oi.unitPrice, s.partID, s.name
-       FROM orderitem oi 
+       FROM orderitem oi
        JOIN sparepart s ON oi.partID = s.partID
        WHERE oi.sparePartsOrderID = ?`,
       [req.params.orderID]
@@ -992,6 +971,10 @@ app.get("/api/orders/:orderID", async (req, res) => {
 });
 
 app.get("/api/warehouse/orders", async (req, res) => {
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const [rows] = await db.query(
       `SELECT
@@ -1057,6 +1040,10 @@ app.get("/api/warehouse/orders", async (req, res) => {
 });
 
 app.patch("/api/warehouse/orders/:orderID/fulfill", async (req, res) => {
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const [orders] = await db.query(
       "SELECT sparePartsOrderID, status FROM sparepartsorder WHERE sparePartsOrderID = ?",
@@ -1085,12 +1072,16 @@ app.patch("/api/warehouse/orders/:orderID/fulfill", async (req, res) => {
 app.patch("/api/orders/:orderID/cancel", async (req, res) => {
   try {
     const [orders] = await db.query(
-      "SELECT status FROM sparepartsorder WHERE sparePartsOrderID = ?",
+      "SELECT userID, status FROM sparepartsorder WHERE sparePartsOrderID = ?",
       [req.params.orderID]
     );
 
     if (orders.length === 0) {
       return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (Number(req.user.userID) !== Number(orders[0].userID) && !isManager(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
     if (orders[0].status !== "pending") {
@@ -1126,15 +1117,37 @@ app.patch("/api/orders/:orderID/cancel", async (req, res) => {
 });
 
 // ─── SERVER ───────────────────────────────────────────────
-app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
-  console.log(
-    `Server running on http://0.0.0.0:${process.env.PORT || 3000}`
-  );
-});
+if (require.main === module) {
+  app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
+    console.log(
+      `Server running on http://0.0.0.0:${process.env.PORT || 3000}`
+    );
+  });
+}
+
+module.exports = {
+  app,
+  normalizeRole,
+  isManager,
+  authenticateToken,
+  allowRoles,
+  authorizeUserAccess,
+  normalizeSelectedParts,
+  loadAndValidateSelectedParts,
+  syncServiceOrderParts,
+  getNextUserOrderNumber,
+  ensureDefaultSpareParts,
+  ensureServiceOrderPartsTable,
+  findServiceOrder,
+};
 
 // ─── USERS (Manager) ──────────────────────────────────────
 
 app.get("/users", async (req, res) => {
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const [rows] = await db.query(
       "SELECT userID, fName, lName, username, email, role FROM user ORDER BY userID ASC"
@@ -1146,6 +1159,10 @@ app.get("/users", async (req, res) => {
 });
 
 app.put("/users/:id", async (req, res) => {
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   const { id } = req.params;
   const { fName, lName, username, email, role } = req.body;
 
@@ -1196,6 +1213,10 @@ app.put("/users/:id", async (req, res) => {
 });
 
 app.delete("/users/:id", async (req, res) => {
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   const { id } = req.params;
   try {
     const [[existing]] = await db.query("SELECT userID FROM user WHERE userID = ?", [id]);
@@ -1219,6 +1240,10 @@ app.delete("/users/:id", async (req, res) => {
 });
 
 app.post("/users", async (req, res) => {
+  if (!isManager(req.user.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   const { fName, lName, username, email, password, passwordHash, role } = req.body;
 
   if (!fName || !lName || !username || !email || !(password || passwordHash) || !role) {
